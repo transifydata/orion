@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
@@ -19,7 +19,7 @@ spec:
         run: orion
     spec:
       containers:
-      - image: gcr.io/poetic-genius-233804/orion:latest
+      - image: gcr.io/busviz/orion:latest
         imagePullPolicy: IfNotPresent
         name: orion
         resources:
@@ -29,31 +29,27 @@ spec:
           - name: ORION_CONFIG_JSON
             value: >
               {
-                 "s3_bucket": "orion-vehicles",
-                 "agencies": [
-                   {
-                     "id": "muni",
-                     "provider": "nextbus",
-                     "nextbus_agency_id": "sf-muni"
-                   },
-                   {
-                     "id": "ttc",
-                     "provider": "nextbus",
-                     "nextbus_agency_id": "ttc"
-                   },
-                   {
-                     "id": "marin",
-                     "provider": "marin"
-                   }
-                 ]
+                "s3_bucket": "orion-vehicles",
+                "agencies": [
+                  {
+                    "id": "muni",
+                    "provider": "nextbus",
+                    "nextbus_agency_id": "sf-muni"
+                  },
+                  {
+                    "id": "ttc",
+                    "provider": "nextbus",
+                    "nextbus_agency_id": "ttc"
+                  },
+                  {
+                    "id": "marin",
+                    "provider": "marin"
+                  },
+                  {
+                    "id": "grt",
+                    "provider": "gtfs-realtime",
+                    "gtfs_realtime_url": "http://192.237.29.212:8080/gtfsrealtime/VehiclePositions"
+                  }
+                ]
               }
-          - name: AWS_ACCESS_KEY_ID
-            valueFrom:
-              secretKeyRef:
-                name: aws-credentials
-                key: aws_access_key_id
-          - name: AWS_SECRET_ACCESS_KEY
-            valueFrom:
-              secretKeyRef:
-                name: aws-credentials
-                key: aws_secret_access_key
+
