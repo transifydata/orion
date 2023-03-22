@@ -5,7 +5,7 @@ function getVehicles(config) {
       throw new Error("nextbus config missing nextbus_agency_id");
     }
 
-    const url = 'http://webservices.nextbus.com/service/publicJSONFeed?command=vehicleLocations&t=0&a='+config.nextbus_agency_id;
+    const url = 'http://retro.umoiq.com//service/publicJSONFeed?command=vehicleLocations&t=0&a='+config.nextbus_agency_id;
     console.log('fetching vehicles from ' + url);
     return axios.get(url)
         .then((response) => {

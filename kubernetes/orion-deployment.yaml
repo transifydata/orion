@@ -26,29 +26,40 @@ spec:
           requests:
             cpu: 0.03
         env:
+         - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: aws_access_key_id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: aws_secret_access_key
           - name: ORION_CONFIG_JSON
             value: >
               {
                 "s3_bucket": "orion-vehicles",
                 "agencies": [
                   {
-                    "id": "muni",
-                    "provider": "nextbus",
-                    "nextbus_agency_id": "sf-muni"
-                  },
-                  {
                     "id": "ttc",
                     "provider": "nextbus",
                     "nextbus_agency_id": "ttc"
                   },
                   {
-                    "id": "marin",
-                    "provider": "marin"
-                  },
-                  {
                     "id": "grt",
                     "provider": "gtfs-realtime",
-                    "gtfs_realtime_url": "http://192.237.29.212:8080/gtfsrealtime/VehiclePositions"
+                    "gtfs_realtime_url": "http://webapps.regionofwaterloo.ca/api/grt-routes/api/vehiclepositions"
+                  },
+                  {
+                    "id": "brampton",
+                    "provider": "gtfs-realtime",
+                    "gtfs_realtime_url": "https://nextride.brampton.ca:81/API/VehiclePositions?format=gtfs.proto"
+                  },
+                  {
+                    "id": "peterborough",
+                    "provider": "gtfs-realtime",
+                    "gtfs_realtime_url": "http://pt.mapstrat.com/current/gtfrealtime_VehiclePositions.bin"
                   }
                 ]
               }
