@@ -54,17 +54,23 @@ spec:
                   {
                     "id": "brampton",
                     "provider": "gtfs-realtime",
-                    "gtfs_realtime_url": "https://nextride.brampton.ca:81/API/VehiclePositions?format=gtfs.proto"
+                    "gtfs_realtime_url": "https://nextride.brampton.ca:81/API/VehiclePositions?format=gtfs.proto",
+                    "route_id_gtfsrt_field": "route_short_name",
+                    "stop_id_gtfsrt_field": "stop_code"
                   },
                   {
                     "id": "peterborough",
                     "provider": "gtfs-realtime",
-                    "gtfs_realtime_url": "http://pt.mapstrat.com/current/gtfrealtime_VehiclePositions.bin"
+                    "gtfs_realtime_url": "http://pt.mapstrat.com/current/gtfrealtime_VehiclePositions.bin",
+                    "route_id_gtfsrt_field": "route_short_name"
                   },
                   {
                     "id": "barrie",
                     "provider": "gtfs-realtime",
-                    "gtfs_realtime_url": "http://www.myridebarrie.ca/gtfs/GTFS_VehiclePositions.pb"
+                    "gtfs_realtime_url": "http://www.myridebarrie.ca/gtfs/GTFS_VehiclePositions.pb",
+                    "route_id_gtfsrt_field": "route_short_name",
+                    "stop_id_gtfsrt_field": "stop_code",
+                    "vehicle_id_gtfsrt_field": "vehicle_name"
                   }
                 ]
               }
