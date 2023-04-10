@@ -60,6 +60,7 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp) {
       currentStopSequence,
       currentStatus,
     } = gtfsVehiclePosition;
+    print(gtfsVehiclePosition)
 
     const orionVehicle = {
       rid: trip.routeId,
