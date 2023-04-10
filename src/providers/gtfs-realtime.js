@@ -17,7 +17,6 @@ function getVehicles(config) {
             reject(error);
           } else if (response.statusCode == 200) {
             const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(body);
-            console.log(JSON.stringify(feed));
             const vehicles = [];
             const feedTimestamp = feed.header.timestamp;
             feed.entity.forEach(function(entity) {
@@ -68,7 +67,7 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, vehicleIdKey) {
 
     const orionVehicle = {
       rid: trip.routeId,
-      vid: vehicleIdKey ? vehicle[vehicleIdKey] : vehicle.id,
+      vid: vehicle.id,
       lat: Math.round(position.latitude*100000)/100000, // 14 digits of lat/lon precision is a bit overkill :0 https://xkcd.com/2170/
       lon: Math.round(position.longitude*100000)/100000,
       heading: position.bearing,
