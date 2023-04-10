@@ -17,6 +17,7 @@ function getVehicles(config) {
             reject(error);
           } else if (response.statusCode == 200) {
             const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(body);
+            console.log(JSON.stringify(feed));
             const vehicles = [];
             const feedTimestamp = feed.header.timestamp;
             feed.entity.forEach(function(entity) {
@@ -25,7 +26,11 @@ function getVehicles(config) {
                 && gtfsVehiclePosition.trip
                 && gtfsVehiclePosition.position
                 && gtfsVehiclePosition.vehicle) {
-                vehicles.push(makeVehicle(gtfsVehiclePosition, feedTimestamp));
+                vehicles.push(makeVehicle(
+                  gtfsVehiclePosition,
+                  feedTimestamp,
+                  config.gtfs_realtime_vehicle_id,
+                ));
               }
             });
             resolve(vehicles);
@@ -36,7 +41,7 @@ function getVehicles(config) {
     });
 }
 
-function makeVehicle(gtfsVehiclePosition, feedTimestamp) {
+function makeVehicle(gtfsVehiclePosition, feedTimestamp, vehicleIdKey) {
     // GTFS-Realtime API returns vehicles like this:
     // VehiclePosition {
     //   trip: TripDescriptor { tripId: '9420711', routeId: '190' },
@@ -60,11 +65,10 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp) {
       currentStopSequence,
       currentStatus,
     } = gtfsVehiclePosition;
-    console.log(gtfsVehiclePosition)
 
     const orionVehicle = {
       rid: trip.routeId,
-      vid: vehicle.id,
+      vid: vehicleIdKey ? vehicle[vehicleIdKey] : vehicle.id,
       lat: Math.round(position.latitude*100000)/100000, // 14 digits of lat/lon precision is a bit overkill :0 https://xkcd.com/2170/
       lon: Math.round(position.longitude*100000)/100000,
       heading: position.bearing,
