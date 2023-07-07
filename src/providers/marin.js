@@ -1,5 +1,5 @@
-const _ = require('lodash');
-const axios = require('axios');
+import _ from 'lodash';
+import axios from 'axios'
 
 /*
  * Marin API requires us to get all their routes,
@@ -30,7 +30,7 @@ const headingInDegrees = {
 
 const marinBaseUrl = "https://marintransit.net";
 
-function getVehicles(/* config */) {
+export function getVehicles(/* config */) {
     return axios.get('/Region/0/Routes', {
       baseURL: marinBaseUrl
     })
@@ -68,7 +68,3 @@ function makeVehicle(marinObject) {
       did: String(PatternId),
     };
 }
-
-module.exports = {
-    getVehicles,
-};

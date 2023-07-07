@@ -39,7 +39,3 @@ function writeToS3(s3Bucket, agency, currentTime, data) {
     });
   });
 };
-
-module.exports = {
-    writeToS3
-};
