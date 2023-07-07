@@ -5,7 +5,7 @@ import axios from 'axios'
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 
 export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
-    const url = config.gtfs_vehiclepositions_url;
+    const url = config.tripUpdatesUrl;
 
     if (!url) throw Error("No trip updates URL provided")
 

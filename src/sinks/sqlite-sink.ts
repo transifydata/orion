@@ -4,9 +4,10 @@ import {Database, open} from 'sqlite'
 import sqlite3 from "sqlite3";
 import {Agency} from "../index";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
-import {getRouteByRouteId, getTripDetails} from "../gtfs-parser.js";
+import {getClosestStopTime, getRouteByRouteId, getTripDetails} from "../gtfs-parser.js";
 import TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
 import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
+import * as assert from "assert";
 
 async function openDb() {
     return open({
@@ -67,28 +68,49 @@ export async function writeToSink(agency: Agency, currentTime: number, data: Veh
     await Promise.all(data.map(v => writeValue(db, v, currentTime, agency)))
 }
 
-export interface SQLVehiclePosition extends VehiclePosition{
+export interface SQLVehiclePosition extends VehiclePosition, TripUpdate {
     lat: string;
     lon: string;
+    time1: number;
 }
 
 export async function getVehicleLocations(agency: string): Promise<VehiclePosition[]> {
     const db = await openDb();
-    const fiveMinutes = Date.now() - 5000000000 * 60;
+    const fiveMinutes = Date.now() - 30 * 60 * 1000;
 
 
-    const rows: SQLVehiclePosition[] = await db.all(`SELECT vp.*
+    const rows: SQLVehiclePosition[] = await db.all(`
+WITH latest_vehicle_positions AS
+( SELECT
+        vp.*
         FROM vehicle_position vp
         INNER JOIN (
           SELECT vid, MAX(time1) AS max_time
           FROM vehicle_position
           GROUP BY vid
-        ) latest ON vp.vid = latest.vid AND vp.time1 = latest.max_time AND vp.agency_id = :agency_id WHERE vp.time1 >= :time1;`, {':time1': fiveMinutes, ':agency_id': agency})
+        ) latest ON vp.vid = latest.vid AND vp.time1 = latest.max_time AND vp.agency_id = :agency_id),
 
+    latest_trip_updates AS
+   (SELECT
+        tu.*
+        FROM trip_update tu
+        INNER JOIN (
+          SELECT vehicle_id, MAX(time1) AS max_time
+          FROM trip_update
+          GROUP BY vehicle_id
+        ) latest ON tu.vehicle_id = latest.vehicle_id AND tu.ROWID AND tu.time1 = latest.max_time AND tu.agency_id = :agency_id)
+
+        SELECT *
+        FROM latest_vehicle_positions vp
+        INNER JOIN latest_trip_updates tu
+            ON tu.vehicle_id = vp.vid AND tu.trip_id=vp.tripId
+        WHERE vp.time1 >= :time1;`, {':time1': fiveMinutes, ':agency_id': agency})
+
+    const currentTime = Date.now();
     return rows.map(r => {
         const routeAttr = getRouteByRouteId(r.rid);
         const tripAttr = getTripDetails(r.tripId);
-        console.log(tripAttr)
+        console.log(tripAttr.trip_headsign, r.vid, r.delay)
         return {...r, lat: parseFloat(r.lat), lon: parseFloat(r.lon), ...routeAttr, ...tripAttr}
     });
 }
@@ -98,16 +120,29 @@ function convertToSQL(tripUpdate: GtfsRealtimeBindings.transit_realtime.TripUpda
     const {
         trip,
         stopTimeUpdate,
-        delay,
         vehicle,
         timestamp,
     } = tripUpdate;
+    let delay = tripUpdate.delay;
 
-    const tripId = trip.tripId;
+    const tripId = trip.tripId as string;
     const startTime = trip.startTime;
     const startDate = trip.startDate;
     const routeId = trip.routeId;
     const vehicleId = vehicle?.id;
+
+    const st = Object.fromEntries(stopTimeUpdate.map(a => {
+        return [a.stopId, a.departure?.delay];
+    }));
+
+    const stopTime = getClosestStopTime(st, tripId, timestamp.toInt());
+    const nextStop = stopTimeUpdate.find(a => {
+        return a.stopId == stopTime?.stop_id;
+    });
+
+    if (delay === 0 && nextStop?.departure?.delay) {
+        delay = nextStop.departure.delay;
+    }
 
     let scheduleRelationship = "unknown";
     if (trip.scheduleRelationship) {
@@ -118,7 +153,7 @@ function convertToSQL(tripUpdate: GtfsRealtimeBindings.transit_realtime.TripUpda
     const stopTimeUpdates = JSON.stringify(stopTimeUpdate); // Convert stopTimeUpdate to JSON string
 
     return `(trip_id, start_time, start_date, route_id, delay, stop_time_updates, timestamp, time1, agency_id, schedule_relationship, direction_id, vehicle_id)
-    VALUES ('${tripId}', '${startTime}', '${startDate}', '${routeId}', ${delay}, '${stopTimeUpdates}', ${timestamp}, ${run_time}, '${agency_id}', '${scheduleRelationship}', ${directionId}, ${vehicleId})`;
+    VALUES ('${tripId}', '${startTime}', '${startDate}', '${routeId}', ${delay}, '${stopTimeUpdates}', ${timestamp}, ${run_time}, '${agency_id}', '${scheduleRelationship}', ${directionId}, '${vehicleId}')`;
 }
 
 export async function writeTripUpdatesToSink(agency: Agency, currentTime: number, data: TripUpdate[]) {

@@ -5,7 +5,7 @@ import {writeToSink, migrateDbs, getVehicleLocations} from "./sinks/sqlite-sink"
 // const axios = require('axios');
 // const s3Helper = require('./sinks/s3Helper');
 
-const interval = 15000; // ms
+const interval = 10000; // ms
 
 const configPath = process.env.ORION_CONFIG_PATH;
 let configJson = process.env.ORION_CONFIG_JSON;
@@ -14,7 +14,7 @@ export interface Agency {
     id: string,
     provider: string,
     gtfs_realtime_url?: string,
-    gtfs_vehiclepositions_url?: string,
+    tripUpdatesUrl?: string,
     nextbus_agency_id?: string
 }
 
@@ -25,7 +25,8 @@ if (!configJson && !configPath) {
             {
                 "id": "brampton",
                 "provider": "gtfs-realtime",
-                "gtfs_realtime_url": "https://nextride.brampton.ca:81/API/VehiclePositions?format=gtfs.proto"
+                "gtfs_realtime_url": "https://nextride.brampton.ca:81/API/VehiclePositions?format=gtfs.proto",
+                "tripUpdatesUrl": "https://nextride.brampton.ca:81/API/TripUpdates?format=gtfs.proto"
             },
             // {
             //     "id": "ttc",
@@ -36,7 +37,7 @@ if (!configJson && !configPath) {
             //     "id": "grt",
             //     "provider": "gtfs-realtime",
             //     "gtfs_realtime_url": "http://webapps.regionofwaterloo.ca/api/grt-routes/api/vehiclepositions",
-            //     "gtfs_vehiclepositions_url": "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
+            //     "tripUpdatesUrl": "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
             // },
             // {
             //     "id": "peterborough",
@@ -80,6 +81,7 @@ import * as NextBus from './providers/nextbus'
 import * as Marin from './providers/marin'
 import * as Realtime from './providers/gtfs-realtime'
 import * as assert from "assert";
+import {parseGTFS} from "./gtfs-parser";
 
 const providers: Record<string, any> = {
     'nextbus': NextBus,
@@ -108,10 +110,7 @@ var agenciesInfo = config.agencies.map((agencyConfig) => {
 });
 
 // wait until the next multiple of 15 seconds
-// setTimeout(function() {
-//     setInterval(saveVehicles, interval);
-//     saveVehicles();
-// }, interval - Date.now() % interval);
+
 
 function saveVehicles() {
 
@@ -123,8 +122,7 @@ function saveVehicles() {
 
     const currentTime = Date.now();
 
-    if (agencyInfo.gtfs_vehiclepositions_url !== undefined) {
-        console.log("Getting trip updates", providerCode)
+    if (agencyInfo.tripUpdatesUrl !== undefined) {
         providerCode.getTripUpdates(agencyInfo).then(updates => {
             return writeTripUpdatesToSink(agencyInfo, currentTime, updates);
         }).catch(err => {throw err})
@@ -144,9 +142,13 @@ function saveVehicles() {
 
 
 async function start() {
+    // Uncomment to load the GTFS (it's currently loaded and already exists in gtfs.db
+    const LOAD_GTFS = false;
+    if (LOAD_GTFS) {
+        await parseGTFS();
+    }
     await migrateDbs();
-    saveVehicles();
-
+    setInterval(saveVehicles, interval);
 }
 
 start().catch(e => {
