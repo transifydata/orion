@@ -1,13 +1,14 @@
-import {Agency} from "../index";
+import {Agency} from "../index.js";
 import request from 'request'
 import axios from 'axios'
 
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 
-const transit_realtime = GtfsRealtimeBindings.transit_realtime
-
-export async function getTripUpdates(config: Agency): Promise<transit_realtime.TripUpdate[]> {
+export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
     const url = config.gtfs_vehiclepositions_url;
+
+    if (!url) throw Error("No trip updates URL provided")
+
     console.log('fetching trip updates from ' + url);
 
     const response = await axios.get(url, { responseType: "arraybuffer" });
@@ -18,7 +19,7 @@ export async function getTripUpdates(config: Agency): Promise<transit_realtime.T
         if (!item.tripUpdate) {
             throw new Error("Unexpected FeedEntity in TripUpdates - " + JSON.stringify(item))
         }
-        return item.tripUpdate;
+        return new GtfsRealtimeBindings.transit_realtime.TripUpdate(item.tripUpdate);
     })
 
 }

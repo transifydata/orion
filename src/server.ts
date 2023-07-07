@@ -1,9 +1,7 @@
-import {parseGTFS} from "./gtfs-parser";
 import express from 'express'
 
-import * as sql from './sinks/sqlite-sink'
+import * as sql from './sinks/sqlite-sink.js'
 import cors from 'cors'
-import * as fs from "fs";
 
 
 const app = express();

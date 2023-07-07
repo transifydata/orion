@@ -1,4 +1,4 @@
-import {getRouteAttributes, getRoutes, getTrips, getTripsDatedVehicleJourneys, importGtfs, openDb} from 'gtfs'
+import {getRoutes, getTrips, importGtfs, openDb} from 'gtfs'
 
 
 export function getRouteByRouteId(routeId: string) {

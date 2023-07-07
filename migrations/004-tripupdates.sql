@@ -14,6 +14,7 @@ CREATE TABLE trip_update (
   timestamp INT NOT NULL,
     time1 INT NOT NULL,
     agency_id TEXT NOT NULL
+  vehicle_id VARCHAR(255),
 );
 
 CREATE UNIQUE INDEX unique_trip_update on trip_update (

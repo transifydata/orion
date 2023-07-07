@@ -1,5 +1,5 @@
 import {writeTripUpdatesToSink} from "./sinks/sqlite-sink";
-import fs from 'fs';
+import fs, {PathOrFileDescriptor} from 'fs';
 
 import {writeToSink, migrateDbs, getVehicleLocations} from "./sinks/sqlite-sink";
 // const axios = require('axios');
@@ -60,7 +60,7 @@ if (configJson) {
     config = JSON.parse(configJson);
 } else {
     console.log("reading config from " + configPath);
-    config = JSON.parse(fs.readFileSync(configPath));
+    config = JSON.parse(fs.readFileSync(configPath as PathOrFileDescriptor).toString());
 }
 
 if (!config || !config.agencies || !config.agencies.length) {
@@ -79,8 +79,9 @@ const providerNames = [
 import * as NextBus from './providers/nextbus'
 import * as Marin from './providers/marin'
 import * as Realtime from './providers/gtfs-realtime'
+import * as assert from "assert";
 
-const providers: Record<string, {getVehicles: Function, getTripUpdates?: Function}> = {
+const providers: Record<string, any> = {
     'nextbus': NextBus,
     'marin': Marin,
     'gtfs-realtime': Realtime
@@ -117,6 +118,8 @@ function saveVehicles() {
   const promises = agenciesInfo.map((agencyInfo) => {
     console.log("Working on", agencyInfo.id)
     const providerCode = providers[agencyInfo.provider];
+
+    if (!providerCode) throw new Error("Invalid provider name")
 
     const currentTime = Date.now();
 
