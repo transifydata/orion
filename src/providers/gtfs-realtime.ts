@@ -1,8 +1,23 @@
 import {Agency} from "../index.js";
+import type Long from "long";
+
 import request from 'request'
 import axios from 'axios'
 
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
+``
+
+const lastTimeStampCache = {}
+
+function shouldProcess(agency: string, function_name: string, feed_timestamp: number): boolean {
+    const cacheKey = agency + function_name + feed_timestamp.toString();
+    if (!lastTimeStampCache[cacheKey]) {
+        lastTimeStampCache[cacheKey] = true;
+        return true;
+    } else {
+        return false;
+    }
+}
 
 export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
     const url = config.tripUpdatesUrl;
@@ -15,14 +30,22 @@ export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindin
 
     const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(response.data);
 
-    return feed.entity.map(item => {
-        if (!item.tripUpdate) {
-            throw new Error("Unexpected FeedEntity in TripUpdates - " + JSON.stringify(item))
-        }
-        return new GtfsRealtimeBindings.transit_realtime.TripUpdate(item.tripUpdate);
-    })
+
+
+    if (shouldProcess(config.id, 'getTripUpdates', (feed?.header?.timestamp as Long).toNumber())) {
+        return feed.entity.map(item => {
+            if (!item.tripUpdate) {
+                throw new Error("Unexpected FeedEntity in TripUpdates - " + JSON.stringify(item))
+            }
+            return new GtfsRealtimeBindings.transit_realtime.TripUpdate(item.tripUpdate);
+        })
+    } else {
+        return []
+    }
+
 
 }
+
 
 export function getVehicles(config) {
     const url = config.gtfs_realtime_url;
@@ -40,22 +63,27 @@ export function getVehicles(config) {
                 reject(error);
             } else if (response.statusCode === 200) {
                 const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(body);
-                const vehicles: VehiclePosition[] = [];
-                const feedTimestamp = feed.header.timestamp;
-                feed.entity.forEach(function (entity) {
-                    const gtfsVehiclePosition = entity.vehicle;
-                    if (gtfsVehiclePosition
-                        && gtfsVehiclePosition.trip
-                        && gtfsVehiclePosition.position
-                        && gtfsVehiclePosition.vehicle) {
-                        vehicles.push(makeVehicle(
-                            gtfsVehiclePosition,
-                            feedTimestamp,
-                            config.gtfs_realtime_vehicle_id,
-                        ));
-                    }
-                });
-                resolve(vehicles);
+
+                if (shouldProcess(config.id, 'getVehicles', (feed?.header?.timestamp as Long).toNumber())) {
+                    const vehicles: VehiclePosition[] = [];
+                    const feedTimestamp = feed.header.timestamp;
+                    feed.entity.forEach(function (entity) {
+                        const gtfsVehiclePosition = entity.vehicle;
+                        if (gtfsVehiclePosition
+                            && gtfsVehiclePosition.trip
+                            && gtfsVehiclePosition.position
+                            && gtfsVehiclePosition.vehicle) {
+                            vehicles.push(makeVehicle(
+                                gtfsVehiclePosition,
+                                feedTimestamp,
+                                config.gtfs_realtime_vehicle_id,
+                            ));
+                        }
+                    });
+                    resolve(vehicles);
+                } else {
+                    resolve([])
+                }
             } else {
                 reject(new Error("HTTP " + response.statusCode + " fetching gtfs-realtime feed from " + url));
             }

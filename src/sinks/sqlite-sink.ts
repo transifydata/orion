@@ -7,7 +7,7 @@ import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import {getClosestStopTime, getRouteByRouteId, getTripDetails} from "../gtfs-parser.js";
 import TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
 import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
-import * as assert from "assert";
+import Long from "long";
 
 async function openDb() {
     return open({
@@ -76,7 +76,7 @@ export interface SQLVehiclePosition extends VehiclePosition, TripUpdate {
 
 export async function getVehicleLocations(agency: string): Promise<VehiclePosition[]> {
     const db = await openDb();
-    const fiveMinutes = Date.now() - 30 * 60 * 1000;
+    const fiveMinutes = Date.now() - 5 * 60 * 1000;
 
 
     const rows: SQLVehiclePosition[] = await db.all(`
@@ -106,7 +106,6 @@ WITH latest_vehicle_positions AS
             ON tu.vehicle_id = vp.vid AND tu.trip_id=vp.tripId
         WHERE vp.time1 >= :time1;`, {':time1': fiveMinutes, ':agency_id': agency})
 
-    const currentTime = Date.now();
     return rows.map(r => {
         const routeAttr = getRouteByRouteId(r.rid);
         const tripAttr = getTripDetails(r.tripId);
@@ -135,7 +134,7 @@ function convertToSQL(tripUpdate: GtfsRealtimeBindings.transit_realtime.TripUpda
         return [a.stopId, a.departure?.delay];
     }));
 
-    const stopTime = getClosestStopTime(st, tripId, timestamp.toInt());
+    const stopTime = getClosestStopTime(st, tripId, (timestamp as Long).toInt());
     const nextStop = stopTimeUpdate.find(a => {
         return a.stopId == stopTime?.stop_id;
     });
