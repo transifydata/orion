@@ -37,7 +37,7 @@ async function writeValue(db: Database, value: VehiclePosition, time: number, ag
     }
 
     colon[':agency_id'] = agency.id
-    colon[':time1'] = time;
+    colon[':server_time'] = time;
     const column_expr = Object.keys(colon).join(',')
 
 
@@ -71,7 +71,7 @@ export async function writeToSink(agency: Agency, currentTime: number, data: Veh
 export interface SQLVehiclePosition extends VehiclePosition, TripUpdate {
     lat: string;
     lon: string;
-    time1: number;
+    server_time: number;
 }
 
 export async function getVehicleLocations(agency: string): Promise<VehiclePosition[]> {
@@ -85,26 +85,26 @@ WITH latest_vehicle_positions AS
         vp.*
         FROM vehicle_position vp
         INNER JOIN (
-          SELECT vid, MAX(time1) AS max_time
+          SELECT vid, MAX(server_time) AS max_time
           FROM vehicle_position
           GROUP BY vid
-        ) latest ON vp.vid = latest.vid AND vp.time1 = latest.max_time AND vp.agency_id = :agency_id),
+        ) latest ON vp.vid = latest.vid AND vp.server_time = latest.max_time AND vp.agency_id = :agency_id),
 
     latest_trip_updates AS
    (SELECT
         tu.*
         FROM trip_update tu
         INNER JOIN (
-          SELECT vehicle_id, MAX(time1) AS max_time
+          SELECT vehicle_id, MAX(server_time) AS max_time
           FROM trip_update
           GROUP BY vehicle_id
-        ) latest ON tu.vehicle_id = latest.vehicle_id AND tu.ROWID AND tu.time1 = latest.max_time AND tu.agency_id = :agency_id)
+        ) latest ON tu.vehicle_id = latest.vehicle_id AND tu.ROWID AND tu.server_time = latest.max_time AND tu.agency_id = :agency_id)
 
         SELECT *
         FROM latest_vehicle_positions vp
         INNER JOIN latest_trip_updates tu
             ON tu.vehicle_id = vp.vid AND tu.trip_id=vp.tripId
-        WHERE vp.time1 >= :time1;`, {':time1': fiveMinutes, ':agency_id': agency})
+        WHERE vp.server_time >= :server_time;`, {':server_time': fiveMinutes, ':agency_id': agency})
 
     return rows.map(r => {
         const routeAttr = getRouteByRouteId(r.rid);
@@ -151,7 +151,7 @@ function convertToSQL(tripUpdate: GtfsRealtimeBindings.transit_realtime.TripUpda
 
     const stopTimeUpdates = JSON.stringify(stopTimeUpdate); // Convert stopTimeUpdate to JSON string
 
-    return `(trip_id, start_time, start_date, route_id, delay, stop_time_updates, timestamp, time1, agency_id, schedule_relationship, direction_id, vehicle_id)
+    return `(trip_id, start_time, start_date, route_id, delay, stop_time_updates, timestamp, server_time, agency_id, schedule_relationship, direction_id, vehicle_id)
     VALUES ('${tripId}', '${startTime}', '${startDate}', '${routeId}', ${delay}, '${stopTimeUpdates}', ${timestamp}, ${run_time}, '${agency_id}', '${scheduleRelationship}', ${directionId}, '${vehicleId}')`;
 }
 

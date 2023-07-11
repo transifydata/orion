@@ -15,7 +15,7 @@ CREATE TABLE vehicle_position (
       stopId TEXT,
       label TEXT,
       agency_id TEXT NOT NULL,
-      time1 INTEGER NOT NULL
+      server_time INTEGER NOT NULL
     );
 
 
@@ -29,7 +29,7 @@ CREATE TABLE nb_vehicle_position (
     secsSinceReport INTEGER,
     leadingVid TEXT,
     agency_id TEXT NOT NULL,
-    time1 INTEGER NOT NULL
+    server_time INTEGER NOT NULL
 );
 
 

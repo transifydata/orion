@@ -12,7 +12,7 @@ CREATE TABLE trip_update (
   delay INT,
   stop_time_updates JSON,
   timestamp INT NOT NULL,
-    time1 INT NOT NULL,
+    server_time INT NOT NULL,
     agency_id TEXT NOT NULL,
   vehicle_id VARCHAR(255)
 );
