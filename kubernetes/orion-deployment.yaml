@@ -47,7 +47,7 @@ spec:
         volumeMounts:
           - name: my-data
             mountPath: /data
-      - image: henry-test:latest
+      - image: gcr.io/busviz/orion:latest
         imagePullPolicy: IfNotPresent
         name: orion-worker
         resources:

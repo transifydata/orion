@@ -1,5 +1,5 @@
-const AWS = require('aws-sdk');
-var zlib = require('zlib');
+import AWS from 'aws-sdk';
+import zlib from 'zlib';
 
 const s3 = new AWS.S3();
 
@@ -9,7 +9,7 @@ function compressData(data) {
   });
 }
 
-function writeToS3(s3Bucket, agency, currentTime, data) {
+export function writeToS3(s3Bucket, agency, currentTime, data) {
   const currentDateTime = new Date(currentTime);
   const year = currentDateTime.getUTCFullYear();
   const month = currentDateTime.getUTCMonth()+1;

@@ -1,4 +1,5 @@
 import {writeTripUpdatesToSink} from "./sinks/sqlite-sink";
+import { writeToS3 } from './sinks/s3Helper';
 import fs, {PathOrFileDescriptor} from 'fs';
 
 import {writeToSink, migrateDbs, getVehicleLocations} from "./sinks/sqlite-sink";
@@ -37,7 +38,7 @@ if (!configJson && !configPath) {
                 "id": "grt",
                 "provider": "gtfs-realtime",
                 "gtfs_realtime_url": "http://webapps.regionofwaterloo.ca/api/grt-routes/api/vehiclepositions",
-               // "tripUpdatesUrl": "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
+                // "tripUpdatesUrl": "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
             },
             {
                 "id": "peterborough",
@@ -60,7 +61,7 @@ if (!configJson && !configPath) {
     // throw new Error("Missing ORION_CONFIG_JSON or ORION_CONFIG_PATH environment variable");
 }
 
-let config: {s3_bucket: string, agencies: Agency[]};
+let config: { s3_bucket: string, agencies: Agency[] };
 if (configJson) {
     console.log("reading config from ORION_CONFIG_JSON");
     config = JSON.parse(configJson);
@@ -119,30 +120,32 @@ var agenciesInfo = config.agencies.map((agencyConfig) => {
 
 function saveVehicles() {
 
-  const promises = agenciesInfo.map((agencyInfo) => {
-    console.log("Working on", agencyInfo.id)
-    const providerCode = providers[agencyInfo.provider];
+    const promises = agenciesInfo.map((agencyInfo) => {
+        console.log("Working on", agencyInfo.id)
+        const providerCode = providers[agencyInfo.provider];
 
-    if (!providerCode) throw new Error("Invalid provider name")
+        if (!providerCode) throw new Error("Invalid provider name")
 
-    const currentTime = Date.now();
+        const currentTime = Date.now();
 
-    if (agencyInfo.tripUpdatesUrl !== undefined) {
-        providerCode.getTripUpdates(agencyInfo).then(updates => {
-            return writeTripUpdatesToSink(agencyInfo, currentTime, updates);
-        }).catch(err => {throw err})
-    }
-    return providerCode.getVehicles(agencyInfo)
-      .then((vehicles) => {
-          writeToSink(agencyInfo, currentTime, vehicles);
-        // return s3Helper.writeToS3(s3Bucket, agencyInfo.id, currentTime, vehicles);
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  });
+        if (agencyInfo.tripUpdatesUrl !== undefined) {
+            providerCode.getTripUpdates(agencyInfo).then(updates => {
+                return writeTripUpdatesToSink(agencyInfo, currentTime, updates);
+            }).catch(err => {
+                throw err
+            })
+        }
+        return providerCode.getVehicles(agencyInfo)
+            .then((vehicles) => {
+                writeToSink(agencyInfo, currentTime, vehicles);
+                return writeToS3(s3Bucket, agencyInfo.id, currentTime, vehicles);
+            })
+            .catch((err) => {
+                console.log(err);
+            });
+    });
 
-  Promise.all(promises);
+    Promise.all(promises);
 }
 
 
