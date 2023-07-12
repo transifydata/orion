@@ -1,13 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  labels:
-    run: orion
-  name: orion
+  name: orion-api-deployment
 spec:
   selector:
     matchLabels:
-      run: orion
+      run: orion-api-pod
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -16,16 +14,24 @@ spec:
   template:
     metadata:
       labels:
-        run: orion
+        run: orion-api-pod
     spec:
+      volumes:
+        - name: my-data
+          persistentVolumeClaim:
+            claimName: my-pvc
+      imagePullSecrets:
+          - name: gcr-secret1
       containers:
       - image: gcr.io/busviz/orion:latest
         imagePullPolicy: IfNotPresent
-        name: orion
+        name: orion-api
         resources:
           requests:
             cpu: 0.03
         env:
+          - name: ORION_DATABASE_PATH
+            value: /data
           - name: AWS_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
@@ -36,36 +42,33 @@ spec:
               secretKeyRef:
                 name: aws-credentials
                 key: aws_secret_access_key
-          - name: ORION_CONFIG_JSON
-            value: >
-              {
-                "s3_bucket": "orion-vehicles",
-                "agencies": [
-                  {
-                    "id": "ttc",
-                    "provider": "nextbus",
-                    "nextbus_agency_id": "ttc"
-                  },
-                  {
-                    "id": "grt",
-                    "provider": "gtfs-realtime",
-                    "gtfs_realtime_url": "http://webapps.regionofwaterloo.ca/api/grt-routes/api/vehiclepositions"
-                  },
-                  {
-                    "id": "brampton",
-                    "provider": "gtfs-realtime",
-                    "gtfs_realtime_url": "https://nextride.brampton.ca:81/API/VehiclePositions?format=gtfs.proto"
-                  },
-                  {
-                    "id": "peterborough",
-                    "provider": "gtfs-realtime",
-                    "gtfs_realtime_url": "http://pt.mapstrat.com/current/gtfrealtime_VehiclePositions.bin"
-                  },
-                  {
-                    "id": "barrie",
-                    "provider": "gtfs-realtime",
-                    "gtfs_realtime_url": "http://www.myridebarrie.ca/gtfs/GTFS_VehiclePositions.pb"
-                  }
-                ]
-              }
+          - name: IS_SERVER
+            value: "true"
+        volumeMounts:
+          - name: my-data
+            mountPath: /data
+      - image: henry-test:latest
+        imagePullPolicy: IfNotPresent
+        name: orion-worker
+        resources:
+          requests:
+            cpu: 0.03
+        env:
+          - name: ORION_DATABASE_PATH
+            value: /data
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: aws_access_key_id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: aws_secret_access_key
+          - name: IS_SERVER
+            value: "false"
+        volumeMounts:
+          - name: my-data
+            mountPath: /data
 

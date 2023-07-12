@@ -1,4 +1,5 @@
 import {getRoutes, getStoptimes, getTrips, importGtfs, openDb} from 'gtfs'
+import fs from 'fs';
 
 
 export function getRouteByRouteId(routeId: string) {
@@ -49,18 +50,45 @@ export function getClosestStopTime(delays: Record<string, number>, tripId: strin
 export function getTripDetails(tripId: string) {
     return getTrips({trip_id: tripId}, ['direction_id', 'trip_headsign'])[0]
 }
+
+
+function fileExists(filename) {
+    try {
+        const stats = fs.statSync(filename);
+        if (stats.isFile() && stats.size > 0) {
+            return true;
+        }
+    } catch (err) {
+        // Handle any errors, e.g., file not found
+    }
+    return false;
+}
+
+const gtfsDatabasePath = (process.env['ORION_DATABASE_PATH'] || '.') + '/gtfs.db';
 const config = {
-    sqlitePath: 'gtfs.db',
+    sqlitePath: gtfsDatabasePath,
     agencies: [
         {
             url: 'https://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip',
             exclude: ['shapes'],
         },
+        {
+            url: 'https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip',
+            exclude: ['shapes']
+        }
     ],
 };
+
+
 export async function parseGTFS() {
-    console.log("Importing GTFS...")
-    await importGtfs(config);
+    console.log("Using GTFS database: ", gtfsDatabasePath)
+
+    if (!fileExists(gtfsDatabasePath)) {
+        console.log("Creating new GTFS...")
+        await importGtfs(config);
+    } else {
+        console.log("Found existing GTFS...")
+    }
 }
 
 

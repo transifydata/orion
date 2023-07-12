@@ -5,7 +5,6 @@ import request from 'request'
 import axios from 'axios'
 
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
-``
 
 const lastTimeStampCache = {}
 
@@ -28,7 +27,11 @@ export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindin
 
     const response = await axios.get(url, { responseType: "arraybuffer" });
 
-    const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(response.data);
+    const feed = decodeFeedMessage(response.data);
+
+    if (!feed) {
+        return []
+    }
 
 
 
@@ -47,6 +50,10 @@ export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindin
 }
 
 
+function decodeFeedMessage(body) {
+    return GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(body);
+}
+
 export function getVehicles(config) {
     const url = config.gtfs_realtime_url;
     console.log('fetching vehicles from ' + url);
@@ -62,7 +69,12 @@ export function getVehicles(config) {
             if (error) {
                 reject(error);
             } else if (response.statusCode === 200) {
-                const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(body);
+                let feed: any = decodeFeedMessage(body);
+
+                if(feed === null) {
+                    resolve([])
+                    return;
+                }
 
                 if (shouldProcess(config.id, 'getVehicles', (feed?.header?.timestamp as Long).toNumber())) {
                     const vehicles: VehiclePosition[] = [];

@@ -1,4 +1,4 @@
-FROM node:8.6.0
+FROM node:20
 
 # Create app directory
 WORKDIR /usr/src/app
@@ -10,7 +10,7 @@ RUN npm install
 # Bundle app source
 COPY . .
 
-CMD [ "npm", "run", "start" ]
+ENTRYPOINT [ "bash", "start.sh" ]
 
 # Build
 # docker build -t orion .

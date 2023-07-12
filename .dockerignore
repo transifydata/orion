@@ -1,4 +1,6 @@
 node_modules
+gtfs.db
+orion-database.db
 .git
 docker-compose.yml
 Dockerfile*

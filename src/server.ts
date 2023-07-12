@@ -21,6 +21,6 @@ app.get('/positions/:agency', async (req, res) => {
     }
 });
 
-app.listen(3001, () => {
-    console.log(`[server]: Server is running at http://localhost:3001`);
+app.listen(4000,() => {
+    console.log(`[server]: Server is running at http://localhost:4000`);
 })

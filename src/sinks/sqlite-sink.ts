@@ -9,9 +9,11 @@ import TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
 import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
 import Long from "long";
 
+const databasePath = (process.env['ORION_DATABASE_PATH'] || '.') + '/orion-database.db';
+console.log("Using database ", databasePath)
 async function openDb() {
     return open({
-        filename: `orion-database.db`,
+        filename: databasePath,
         driver: sqlite3.cached.Database
     })
 }
