@@ -10,6 +10,9 @@ import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescript
 import Long from "long";
 
 const databasePath = (process.env['ORION_DATABASE_PATH'] || '.') + '/orion-database.db';
+
+let lastPruned = 0;
+
 console.log("Using database ", databasePath)
 async function openDb() {
     return open({
@@ -21,6 +24,8 @@ async function openDb() {
 export async function migrateDbs() {
     const db = await openDb();
     await db.migrate()
+    await db.run( 'PRAGMA journal_mode = WAL;' );
+    await pruneDb(db, Date.now());
 
     console.log("Finished migrations")
 }
@@ -159,6 +164,9 @@ function convertToSQL(tripUpdate: GtfsRealtimeBindings.transit_realtime.TripUpda
 
 export async function writeTripUpdatesToSink(agency: Agency, currentTime: number, data: TripUpdate[]) {
     const db = await openDb();
+
+    await pruneDb(db, currentTime);
+
     for (const update of data) {
         const sql = convertToSQL(update, currentTime, agency.id);
 
@@ -169,5 +177,18 @@ export async function writeTripUpdatesToSink(agency: Agency, currentTime: number
             console.error("Error inserting " + e + " " + JSON.stringify(update))
             throw e;
         }
+    }
+}
+
+async function pruneDb(db, currentTime: number) {
+    // Run approximately every 5 hours
+    if (currentTime - lastPruned > 5 * 3600 * 1000) {
+        lastPruned = currentTime;
+        // Delete records older than 5 hours
+        const prunePast = currentTime - 5 * 3600 * 1000;
+        const deletedRows1 = await db.run(`DELETE FROM trip_update WHERE server_time < ${prunePast}`)
+        const deletedRows2 = await db.run(`DELETE FROM vehicle_position WHERE server_time < ${prunePast}`)
+
+        console.log("Pruned ", deletedRows1.changes, deletedRows2.changes)
     }
 }

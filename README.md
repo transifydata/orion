@@ -13,7 +13,7 @@ https://docs.google.com/document/d/1KTWRc4EO63_lDxjcp0mmprgrFPfFazWJEy2MwxBuw4E/
 
 ## Usage
 
-Orion is configured via JSON stored in the `ORION_CONFIG_JSON` environment variable, or a file located at the path in the `ORION_CONFIG_PATH` environment variable.
+Orion is configured via JSON stored in the `src/config.ts` file. 
 
 The config JSON should be an object containing the following properties:
 
@@ -28,38 +28,16 @@ Orion writes data to S3 using the AWS credentials from the default locations, e.
 
 In a development environment, you can set environment variables and AWS credentials by creating a file in the root of this repository named docker-compose.override.yml, e.g.:
 
-```
-version: "3.7"
-services:
-  orion-dev:
-    volumes:
-      - ../.aws:/root/.aws
-    environment:
-      AWS_PROFILE: "default"
-      ORION_CONFIG_JSON: >
-        {
-         "s3_bucket": "my-opentransit-bucket",
-         "agencies": [
-           {
-             "id": "muni",
-             "provider": "nextbus",
-             "nextbus_agency_id": "sf-muni"
-           },
-           {
-             "id": "ttc",
-             "provider": "nextbus",
-             "nextbus_agency_id": "ttc"
-           },
-           {
-             "id": "marin",
-             "provider": "marin"
-           }
-         ]
-        }
-```
-
 To test, run `docker-compose up`.
 
 ## Prerequisites
 
 Docker
+
+## Running Orion
+
+Orion has two parts: an API server that responds to requests from `trips-viewer` and returns the latest vehicle positions, and a "worker" that pulls data from GTFS Realtime for all agencies frequently and stores it into a SQLite database.
+
+To run the API server: `yarn serve`
+
+To run the worker: `yarn start`

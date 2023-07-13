@@ -23,12 +23,14 @@ function unixTimestampToSecondsOfDay(unixTimestamp) {
     const date = new Date(unixTimestamp * 1000);
 
     // Extract the hours, minutes, and seconds from the Date object
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const seconds = date.getSeconds();
+    const hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes();
+    const seconds = date.getUTCSeconds();
+
+    const EST_TIMEZONE_OFFSET_SECS = -4 * 3600;
 
     // Calculate the total number of seconds
-    return hours * 3600 + minutes * 60 + seconds;
+    return hours * 3600 + minutes * 60 + seconds + EST_TIMEZONE_OFFSET_SECS;
 }
 export function getClosestStopTime(delays: Record<string, number>, tripId: string, timestamp: number) {
 
@@ -92,5 +94,5 @@ export async function parseGTFS() {
 }
 
 
-const db = openDb(config);
+const _db = openDb(config);
 

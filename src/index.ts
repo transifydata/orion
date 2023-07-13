@@ -1,15 +1,13 @@
-import {writeTripUpdatesToSink} from "./sinks/sqlite-sink";
-import { writeToS3 } from './sinks/s3Helper';
-import fs, {PathOrFileDescriptor} from 'fs';
-
-import {writeToSink, migrateDbs, getVehicleLocations} from "./sinks/sqlite-sink";
-// const axios = require('axios');
-// const s3Helper = require('./sinks/s3Helper');
+import {migrateDbs, writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-sink";
+import {writeToS3} from './sinks/s3Helper';
+import * as NextBus from './providers/nextbus'
+import * as Marin from './providers/marin'
+import * as Realtime from './providers/gtfs-realtime'
+import {parseGTFS} from "./gtfs-parser";
+import {config} from "./config";
 
 const interval = 10000; // ms
 
-const configPath = process.env.ORION_CONFIG_PATH;
-let configJson = process.env.ORION_CONFIG_JSON;
 
 export interface Agency {
     id: string,
@@ -19,56 +17,7 @@ export interface Agency {
     nextbus_agency_id?: string
 }
 
-if (!configJson && !configPath) {
-    configJson = JSON.stringify({
-        "s3_bucket": "orion-vehicles",
-        "agencies": [
-            {
-                "id": "brampton",
-                "provider": "gtfs-realtime",
-                "gtfs_realtime_url": "https://nextride.brampton.ca:81/API/VehiclePositions?format=gtfs.proto",
-                "tripUpdatesUrl": "https://nextride.brampton.ca:81/API/TripUpdates?format=gtfs.proto"
-            },
-            {
-                "id": "ttc",
-                "provider": "nextbus",
-                "nextbus_agency_id": "ttc"
-            },
-            {
-                "id": "grt",
-                "provider": "gtfs-realtime",
-                "gtfs_realtime_url": "http://webapps.regionofwaterloo.ca/api/grt-routes/api/vehiclepositions",
-                // "tripUpdatesUrl": "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
-            },
-            {
-                "id": "peterborough",
-                "provider": "gtfs-realtime",
-                "gtfs_realtime_url": "http://pt.mapstrat.com/current/gtfrealtime_VehiclePositions.bin"
-            },
-            {
-                "id": "barrie",
-                "provider": "gtfs-realtime",
-                "gtfs_realtime_url": "http://www.myridebarrie.ca/gtfs/GTFS_VehiclePositions.pb"
-            },
-            {
-                "id": "go",
-                "provider": "gtfs-realtime",
-                "tripUpdatesUrl": "http://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs.proto/Feed/TripUpdates?key=30021152",
-                "gtfs_realtime_url": "http://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs.proto/Feed/VehiclePosition?key=30021152"
-            }
-        ]
-    })
-    // throw new Error("Missing ORION_CONFIG_JSON or ORION_CONFIG_PATH environment variable");
-}
 
-let config: { s3_bucket: string, agencies: Agency[] };
-if (configJson) {
-    console.log("reading config from ORION_CONFIG_JSON");
-    config = JSON.parse(configJson);
-} else {
-    console.log("reading config from " + configPath);
-    config = JSON.parse(fs.readFileSync(configPath as PathOrFileDescriptor).toString());
-}
 
 if (!config || !config.agencies || !config.agencies.length) {
     throw new Error("No agencies specified in config.");
@@ -83,11 +32,6 @@ const providerNames = [
     'marin',
     'gtfs-realtime',
 ];
-import * as NextBus from './providers/nextbus'
-import * as Marin from './providers/marin'
-import * as Realtime from './providers/gtfs-realtime'
-import * as assert from "assert";
-import {parseGTFS} from "./gtfs-parser";
 
 const providers: Record<string, any> = {
     'nextbus': NextBus,

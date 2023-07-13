@@ -24,11 +24,11 @@ spec:
           - name: gcr-secret1
       containers:
       - image: gcr.io/busviz/orion:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: orion-api
         resources:
           requests:
-            cpu: 0.03
+            cpu: 0.1
         env:
           - name: ORION_DATABASE_PATH
             value: /data
@@ -48,11 +48,11 @@ spec:
           - name: my-data
             mountPath: /data
       - image: gcr.io/busviz/orion:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: orion-worker
         resources:
           requests:
-            cpu: 0.03
+            cpu: 0.1
         env:
           - name: ORION_DATABASE_PATH
             value: /data

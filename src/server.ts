@@ -2,7 +2,6 @@ import express from 'express'
 
 import * as sql from './sinks/sqlite-sink.js'
 import cors from 'cors'
-import {parseGTFS} from "./gtfs-parser";
 
 
 const app = express();
@@ -21,6 +20,9 @@ app.get('/positions/:agency', async (req, res) => {
     }
 });
 
+app.get('/', async (req, res) => {
+    res.sendStatus(200);
+})
 app.listen(4000,() => {
     console.log(`[server]: Server is running at http://localhost:4000`);
 })
