@@ -46,6 +46,7 @@ spec:
             value: "true"
         volumeMounts:
           - name: my-data
+            # Where the container expects to find the SQLITE file (see ORION_DATABASE_PATH)
             mountPath: /data
       - image: gcr.io/busviz/orion:latest
         imagePullPolicy: Always

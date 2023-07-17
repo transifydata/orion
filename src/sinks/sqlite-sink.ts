@@ -4,7 +4,7 @@ import {Database, open} from 'sqlite'
 import sqlite3 from "sqlite3";
 import {Agency} from "../index";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
-import {getClosestStopTime, getRouteByRouteId, getTripDetails} from "../gtfs-parser.js";
+import {getClosestScheduledStopTime, getRouteByRouteId, getTripDetails} from "../gtfs-parser.js";
 import TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
 import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
 import Long from "long";
@@ -83,8 +83,7 @@ export interface SQLVehiclePosition extends VehiclePosition, TripUpdate {
 
 export async function getVehicleLocations(agency: string): Promise<VehiclePosition[]> {
     const db = await openDb();
-    const fiveMinutes = Date.now() - 5 * 60 * 1000;
-
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
 
     const rows: SQLVehiclePosition[] = await db.all(`
 WITH latest_vehicle_positions AS
@@ -111,7 +110,7 @@ WITH latest_vehicle_positions AS
         FROM latest_vehicle_positions vp
         INNER JOIN latest_trip_updates tu
             ON tu.vehicle_id = vp.vid AND tu.trip_id=vp.tripId
-        WHERE vp.server_time >= :server_time;`, {':server_time': fiveMinutes, ':agency_id': agency})
+        WHERE vp.server_time >= :server_time;`, {':server_time': fiveMinutesAgo, ':agency_id': agency})
 
     return rows.map(r => {
         const routeAttr = getRouteByRouteId(r.rid);
@@ -141,7 +140,7 @@ function convertToSQL(tripUpdate: GtfsRealtimeBindings.transit_realtime.TripUpda
         return [a.stopId, a.departure?.delay];
     }));
 
-    const stopTime = getClosestStopTime(st, tripId, (timestamp as Long).toInt());
+    const stopTime = getClosestScheduledStopTime(st, tripId, (timestamp as Long).toInt());
     const nextStop = stopTimeUpdate.find(a => {
         return a.stopId == stopTime?.stop_id;
     });

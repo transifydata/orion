@@ -1,7 +1,6 @@
 import {migrateDbs, writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-sink";
 import {writeToS3} from './sinks/s3Helper';
 import * as NextBus from './providers/nextbus'
-import * as Marin from './providers/marin'
 import * as Realtime from './providers/gtfs-realtime'
 import {parseGTFS} from "./gtfs-parser";
 import {config} from "./config";
@@ -29,13 +28,11 @@ if (!config.s3_bucket) {
 
 const providerNames = [
     'nextbus',
-    'marin',
     'gtfs-realtime',
 ];
 
 const providers: Record<string, any> = {
     'nextbus': NextBus,
-    'marin': Marin,
     'gtfs-realtime': Realtime
 }
 

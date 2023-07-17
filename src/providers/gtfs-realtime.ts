@@ -8,7 +8,8 @@ import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 
 const lastTimeStampCache = {}
 
-function shouldProcess(agency: string, function_name: string, feed_timestamp: number): boolean {
+function shouldProcessUpdate(agency: string, function_name: string, feed_timestamp: number): boolean {
+    // Whether to process an update depending on if the `feed_timestamp` (when the feed was created) has changed
     const cacheKey = agency + function_name + feed_timestamp.toString();
     if (!lastTimeStampCache[cacheKey]) {
         lastTimeStampCache[cacheKey] = true;
@@ -35,7 +36,7 @@ export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindin
 
 
 
-    if (shouldProcess(config.id, 'getTripUpdates', (feed?.header?.timestamp as Long).toNumber())) {
+    if (shouldProcessUpdate(config.id, 'getTripUpdates', (feed?.header?.timestamp as Long).toNumber())) {
         return feed.entity.map(item => {
             if (!item.tripUpdate) {
                 throw new Error("Unexpected FeedEntity in TripUpdates - " + JSON.stringify(item))
@@ -52,6 +53,13 @@ export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindin
 
 function decodeFeedMessage(body) {
     return GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(body);
+}
+
+function isVehicle(gtfsVehiclePosition) {
+    return gtfsVehiclePosition
+        && gtfsVehiclePosition.trip
+        && gtfsVehiclePosition.position
+        && gtfsVehiclePosition.vehicle;
 }
 
 export function getVehicles(config) {
@@ -76,15 +84,12 @@ export function getVehicles(config) {
                     return;
                 }
 
-                if (shouldProcess(config.id, 'getVehicles', (feed?.header?.timestamp as Long).toNumber())) {
+                if (shouldProcessUpdate(config.id, 'getVehicles', (feed?.header?.timestamp as Long).toNumber())) {
                     const vehicles: VehiclePosition[] = [];
                     const feedTimestamp = feed.header.timestamp;
                     feed.entity.forEach(function (entity) {
                         const gtfsVehiclePosition = entity.vehicle;
-                        if (gtfsVehiclePosition
-                            && gtfsVehiclePosition.trip
-                            && gtfsVehiclePosition.position
-                            && gtfsVehiclePosition.vehicle) {
+                        if (isVehicle(gtfsVehiclePosition)) {
                             vehicles.push(makeVehicle(
                                 gtfsVehiclePosition,
                                 feedTimestamp,

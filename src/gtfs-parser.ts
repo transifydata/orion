@@ -1,4 +1,5 @@
 import {getRoutes, getStoptimes, getTrips, importGtfs, openDb} from 'gtfs'
+import moment from 'moment-timezone'
 import fs from 'fs';
 
 
@@ -17,25 +18,16 @@ function HHMMSSToSeconds(time) {
 
     return parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds);
 }
-function unixTimestampToSecondsOfDay(unixTimestamp) {
-    // Create a new Date object with the Unix timestamp in milliseconds
-    // TODO: handle timezone (we're lucky because server's also running in ET)
-    const date = new Date(unixTimestamp * 1000);
-
-    // Extract the hours, minutes, and seconds from the Date object
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
-    const seconds = date.getUTCSeconds();
-
-    const EST_TIMEZONE_OFFSET_SECS = -4 * 3600;
-
-    // Calculate the total number of seconds
-    return hours * 3600 + minutes * 60 + seconds + EST_TIMEZONE_OFFSET_SECS;
+function unixTimestampToSecondsOfDay(unixTimestamp, timezone) {
+    // timezone is from IANA timezone database, like "America/Toronto"
+    const torontoTime = moment.unix(unixTimestamp).tz(timezone);
+    return torontoTime.diff(torontoTime.clone().startOf('day'), 'seconds')
 }
-export function getClosestStopTime(delays: Record<string, number>, tripId: string, timestamp: number) {
+
+export function getClosestScheduledStopTime(delays: Record<string, number>, tripId: string, timestamp: number) {
 
     const stop_times = getStoptimes({trip_id: tripId})
-    const timeOfDay = unixTimestampToSecondsOfDay(timestamp);
+    const timeOfDay = unixTimestampToSecondsOfDay(timestamp, "America/Toronto");
 
     let lastDelay = 0;
     for (const st of stop_times) {
