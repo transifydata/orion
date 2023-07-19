@@ -25,7 +25,7 @@ spec:
       containers:
       - image: gcr.io/busviz/orion:latest
         imagePullPolicy: Always
-        name: orion
+        name: orion-api
         resources:
           requests:
             cpu: 0.1
@@ -50,7 +50,7 @@ spec:
             mountPath: /data
       - image: gcr.io/busviz/orion:latest
         imagePullPolicy: Always
-        name: orion
+        name: orion-worker
         resources:
           requests:
             cpu: 0.1
