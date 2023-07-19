@@ -4,8 +4,8 @@ FROM node:20
 WORKDIR /usr/src/app
 
 # Install dependencies
-COPY package.json package-lock.json ./
-RUN npm install
+COPY package.json yarn.lock ./
+RUN yarn
 
 # Bundle app source
 COPY . .
