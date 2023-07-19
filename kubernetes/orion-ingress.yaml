@@ -1,0 +1,14 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orion-api-ingress
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: orion-api-ip
+    networking.gke.io/managed-certificates: orion-api-cert
+    kubernetes.io/ingress.class: "gce"
+spec:
+  defaultBackend:
+    service:
+      name: orion-api-service
+      port:
+        number: 80

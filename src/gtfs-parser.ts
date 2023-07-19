@@ -1,0 +1,92 @@
+import {getRoutes, getStoptimes, getTrips, importGtfs, openDb} from 'gtfs'
+import moment from 'moment-timezone'
+import fs from 'fs';
+
+
+export function getRouteByRouteId(routeId: string) {
+    const ret = getRoutes({
+        route_id: routeId
+    }, ['route_long_name', 'route_short_name'], [])
+    return ret[0];
+}
+
+
+
+function HHMMSSToSeconds(time) {
+    // Split the time string into hours, minutes, and seconds
+    const [hours, minutes, seconds] = time.split(':');
+
+    return parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds);
+}
+function unixTimestampToSecondsOfDay(unixTimestamp, timezone) {
+    // timezone is from IANA timezone database, like "America/Toronto"
+    const torontoTime = moment.unix(unixTimestamp).tz(timezone);
+    return torontoTime.diff(torontoTime.clone().startOf('day'), 'seconds')
+}
+
+export function getClosestScheduledStopTime(delays: Record<string, number>, tripId: string, timestamp: number) {
+    // We have a list of delays for each stopID, but don't know what stop the bus is currently at.
+    // Iterate through all stops and find the *next* stop that the bus will arrive to.
+
+    const stop_times = getStoptimes({trip_id: tripId})
+    const timeOfDay = unixTimestampToSecondsOfDay(timestamp, "America/Toronto");
+
+    let lastDelay = 0;
+    for (const st of stop_times) {
+        const stopDelay = delays[st.stop_id];
+        lastDelay = stopDelay ? stopDelay : lastDelay;
+        if(HHMMSSToSeconds(st.departure_time) + lastDelay >= timeOfDay) {
+            return st;
+        }
+    }
+
+    console.warn(`Could not find appropriate stop time for ${tripId} with ${timestamp} ${timeOfDay}. Trip probably already ended?`)
+    return undefined;
+}
+export function getTripDetails(tripId: string) {
+    return getTrips({trip_id: tripId}, ['direction_id', 'trip_headsign'])[0]
+}
+
+
+function fileExists(filename) {
+    try {
+        const stats = fs.statSync(filename);
+        if (stats.isFile() && stats.size > 0) {
+            return true;
+        }
+    } catch (err) {
+        // Handle any errors, e.g., file not found
+    }
+    return false;
+}
+
+const gtfsDatabasePath = (process.env['ORION_DATABASE_PATH'] || '.') + '/gtfs.db';
+const config = {
+    sqlitePath: gtfsDatabasePath,
+    agencies: [
+        {
+            url: 'https://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip',
+            exclude: ['shapes'],
+        },
+        {
+            url: 'https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip',
+            exclude: ['shapes']
+        }
+    ],
+};
+
+
+export async function parseGTFS() {
+    console.log("Using GTFS database: ", gtfsDatabasePath)
+
+    if (!fileExists(gtfsDatabasePath)) {
+        console.log("Creating new GTFS...")
+        await importGtfs(config);
+    } else {
+        console.log("Found existing GTFS...")
+    }
+}
+
+
+const _db = openDb(config);
+

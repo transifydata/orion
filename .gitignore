@@ -1,3 +1,7 @@
 node_modules
+dist
+.idea
 DS_STORE
 docker-compose.override.yml
+gtfs.db*
+orion-database.db*
