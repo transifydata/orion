@@ -30,7 +30,7 @@ export async function migrateDbs() {
     console.log("Finished migrations")
 }
 
-async function writeValue(db: Database, value: VehiclePosition, time: number, agency: Agency) {
+async function writeValue(db: Database, value: VehiclePosition, time: number, server_date: string, agency: Agency) {
     const colon = {}
     for (const key in value) {
 
@@ -45,6 +45,7 @@ async function writeValue(db: Database, value: VehiclePosition, time: number, ag
 
     colon[':agency_id'] = agency.id
     colon[':server_time'] = time;
+    colon[':server_date'] = server_date;
     const column_expr = Object.keys(colon).join(',')
 
 
@@ -72,7 +73,9 @@ function map_provider_to_table_name(provider: string) {
 export async function writeToSink(agency: Agency, currentTime: number, data: VehiclePosition[]) {
     const db = await openDb();
 
-    await Promise.all(data.map(v => writeValue(db, v, currentTime, agency)))
+    const currentDate = new Date().toISOString().slice(0, 10);
+
+    await Promise.all(data.map(v => writeValue(db, v, currentTime, currentDate, agency)))
 }
 
 export interface SQLVehiclePosition extends VehiclePosition, TripUpdate {

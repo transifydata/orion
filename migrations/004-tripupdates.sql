@@ -3,10 +3,10 @@
 --------------------------------------------------------------------------------
 
 CREATE TABLE trip_update (
-  trip_id VARCHAR(255) NOT NULL,
-  route_id VARCHAR(255) NOT NULL,
-  start_time VARCHAR(255) NOT NULL,
-  start_date VARCHAR(255) NOT NULL,
+  trip_id TEXT NOT NULL,
+  route_id TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  start_date TEXT NOT NULL,
   schedule_relationship TEXT,
   direction_id INT,
   delay INT,
@@ -14,7 +14,7 @@ CREATE TABLE trip_update (
   timestamp INT NOT NULL,
     server_time INT NOT NULL,
     agency_id TEXT NOT NULL,
-  vehicle_id VARCHAR(255)
+  vehicle_id TEXT
 );
 
 CREATE UNIQUE INDEX unique_trip_update on trip_update (

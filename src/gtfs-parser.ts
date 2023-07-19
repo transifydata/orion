@@ -25,6 +25,8 @@ function unixTimestampToSecondsOfDay(unixTimestamp, timezone) {
 }
 
 export function getClosestScheduledStopTime(delays: Record<string, number>, tripId: string, timestamp: number) {
+    // We have a list of delays for each stopID, but don't know what stop the bus is currently at.
+    // Iterate through all stops and find the *next* stop that the bus will arrive to.
 
     const stop_times = getStoptimes({trip_id: tripId})
     const timeOfDay = unixTimestampToSecondsOfDay(timestamp, "America/Toronto");
