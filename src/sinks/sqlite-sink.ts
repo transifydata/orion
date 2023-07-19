@@ -44,10 +44,12 @@ async function writeValue(db: Database, value: VehiclePosition, time: number, se
     }
 
     colon[':agency_id'] = agency.id
-    colon[':server_time'] = time;
     colon[':server_date'] = server_date;
+    colon[':server_time'] = time;
+
     const column_expr = Object.keys(colon).join(',')
 
+    console.log("Inserting: ", column_expr, colon)
 
     const table_name = map_provider_to_table_name(agency.provider)
     try {
