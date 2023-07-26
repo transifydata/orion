@@ -1,7 +1,32 @@
-import {getRoutes, getStoptimes, getTrips, importGtfs, openDb} from 'gtfs'
+import {
+    getRoutes,
+    getShapesAsGeoJSON,
+    getStops,
+    getStopsAsGeoJSON,
+    getStoptimes,
+    getTrips,
+    importGtfs,
+    openDb
+} from 'gtfs'
+import {FeatureCollection, Feature, Geometry, Position} from '@turf/helpers'
 import moment from 'moment-timezone'
 import fs from 'fs';
 
+
+export interface Stop {
+    id: string;
+    name: string;
+    lat: number;
+    lon: number;
+}
+
+export interface Route {
+    id: string;
+    short_name: string;
+    long_name: string;
+    shape: Feature;
+    stops: FeatureCollection<Geometry, Stop>
+}
 
 export function getRouteByRouteId(routeId: string) {
     const ret = getRoutes({
@@ -11,13 +36,13 @@ export function getRouteByRouteId(routeId: string) {
 }
 
 
-
 function HHMMSSToSeconds(time) {
     // Split the time string into hours, minutes, and seconds
     const [hours, minutes, seconds] = time.split(':');
 
     return parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds);
 }
+
 function unixTimestampToSecondsOfDay(unixTimestamp, timezone) {
     // timezone is from IANA timezone database, like "America/Toronto"
     const torontoTime = moment.unix(unixTimestamp).tz(timezone);
@@ -35,7 +60,7 @@ export function getClosestScheduledStopTime(delays: Record<string, number>, trip
     for (const st of stop_times) {
         const stopDelay = delays[st.stop_id];
         lastDelay = stopDelay ? stopDelay : lastDelay;
-        if(HHMMSSToSeconds(st.departure_time) + lastDelay >= timeOfDay) {
+        if (HHMMSSToSeconds(st.departure_time) + lastDelay >= timeOfDay) {
             return st;
         }
     }
@@ -43,6 +68,7 @@ export function getClosestScheduledStopTime(delays: Record<string, number>, trip
     console.warn(`Could not find appropriate stop time for ${tripId} with ${timestamp} ${timeOfDay}. Trip probably already ended?`)
     return undefined;
 }
+
 export function getTripDetails(tripId: string) {
     return getTrips({trip_id: tripId}, ['direction_id', 'trip_headsign'])[0]
 }
@@ -66,12 +92,10 @@ const config = {
     agencies: [
         {
             url: 'https://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip',
-            exclude: ['shapes'],
         },
-        {
-            url: 'https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip',
-            exclude: ['shapes']
-        }
+        // {
+        //     url: 'https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip',
+        // }
     ],
 };
 
@@ -87,6 +111,80 @@ export async function parseGTFS() {
     }
 }
 
+async function getShapeForRoute(routeId: string, properties: Record<string, any>): Promise<Feature> {
+    const db = await openDb(config);
+    const shapes = await getShapesAsGeoJSON({route_id: routeId});
 
+    // For some reason this returns a FeatureCollection of LineStrings.
+    // Convert this to a MultiLineString by appending all the LineStrings together
+
+    if (shapes.features.length > 0 && shapes.features.every(f => f.geometry.type === "LineString")) {
+        const multiLineStringCoords = shapes.features.map(f => {
+              return f.geometry.coordinates;
+        });
+
+        return {
+            type: "Feature",
+            geometry: {
+                type: "MultiLineString",
+                coordinates: multiLineStringCoords as Position[][][]
+            },
+            properties: properties
+        }
+    } else {
+        throw new Error("Unexpected shape type: " + shapes.features[0].geometry.type)
+    }
+}
+
+async function getAllRoutes(): Promise<Array<{id: string, short_name: string, long_name: string}>> {
+    const routes = await getRoutes({}, [ 'route_id', 'route_short_name', 'route_long_name']);
+    return routes.map(r => {
+        return {
+            id: r.route_id,
+            short_name: r.route_short_name,
+            long_name: r.route_long_name
+        }
+    });
+}
+
+export async function getAllRoutesWithShapes(): Promise<Array<Route>> {
+    const routes = await getAllRoutes();
+
+    return await Promise.all(routes.map(async r => {
+        return {
+            ...r,
+            shape: await getShapeForRoute(r.id, r),
+            stops: await getStopByRoute(r.id)
+        }
+    }));
+}
+
+async function getStopByRoute(routeId: string): Promise<FeatureCollection<Geometry, Stop>> {
+    const stops = await getStops({route_id: routeId});
+
+    const features: Array<Feature<Geometry, Stop>> = await Promise.all(stops.map(async stop => {
+        const props = {
+            id: stop.stop_id,
+            name: stop.stop_name,
+            lat: stop.stop_lat,
+            lon: stop.stop_lon,
+            route_id: routeId
+        };
+        return {
+            type: "Feature",
+            geometry: {
+                type: "Point",
+                coordinates: [stop.stop_lon, stop.stop_lat]
+            },
+            properties: {
+                ...props
+            }
+        }
+    }))
+
+    return {
+        type: "FeatureCollection",
+        features: features
+    }
+}
 const _db = openDb(config);
-
