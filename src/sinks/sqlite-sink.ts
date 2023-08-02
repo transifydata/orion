@@ -49,8 +49,6 @@ async function writeValue(db: Database, value: VehiclePosition, time: number, se
 
     const column_expr = Object.keys(colon).join(',')
 
-    console.log("Inserting: ", column_expr, colon)
-
     const table_name = map_provider_to_table_name(agency.provider)
     try {
         // Automatic duplicate checking, so use INSERT OR IGNORE...

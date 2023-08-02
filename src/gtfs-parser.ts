@@ -92,6 +92,7 @@ const config = {
     agencies: [
         {
             url: 'https://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip',
+            prefix: undefined
         },
         // {
         //     url: 'https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip',
@@ -100,10 +101,15 @@ const config = {
 };
 
 
-export async function parseGTFS() {
+export async function resetGtfs() {
+    console.log("Resetting GTFS...");
+    await parseGTFS(true);
+}
+
+export async function parseGTFS(forceReset = false) {
     console.log("Using GTFS database: ", gtfsDatabasePath)
 
-    if (!fileExists(gtfsDatabasePath)) {
+    if (!fileExists(gtfsDatabasePath) || forceReset) {
         console.log("Creating new GTFS...")
         await importGtfs(config);
     } else {
@@ -112,7 +118,6 @@ export async function parseGTFS() {
 }
 
 async function getShapeForRoute(routeId: string, properties: Record<string, any>): Promise<Feature> {
-    const db = await openDb(config);
     const shapes = await getShapesAsGeoJSON({route_id: routeId});
 
     // For some reason this returns a FeatureCollection of LineStrings.
