@@ -94,9 +94,14 @@ const config = {
             url: 'https://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip',
             prefix: undefined
         },
-        // {
-        //     url: 'https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip',
-        // }
+        {
+            // Peterborough
+            url: 'http://pt.mapstrat.com/current/google_transit.zip',
+            prefix: 'peterborough'
+        },
+        {
+            url: 'https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip',
+        }
     ],
 };
 
