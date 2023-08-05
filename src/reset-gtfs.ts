@@ -1,3 +1,5 @@
+// Resets the GTFS every night at 3AM to make sure the most recent GTFS is pulled and used
+
 import {resetGtfs} from "./gtfs-parser";
 
 let isBetween2Am3Am = false;

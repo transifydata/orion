@@ -16,12 +16,9 @@ await parseGTFS();
 
 let ROUTES_CACHE: Route[] | undefined = undefined;
 
-// app.get('/test', async (req, res) => {
-//     const routes = await getAllRoutesWithShapes();
-// })
 
 app.get('/routes/brampton', async (req, res) => {
-    if (ROUTES_CACHE === undefined || true) {
+    if (ROUTES_CACHE === undefined) {
         ROUTES_CACHE = await getAllRoutesWithShapes();
         res.json(ROUTES_CACHE);
     } else {

@@ -97,6 +97,8 @@ const config = {
         {
             // Peterborough
             url: 'http://pt.mapstrat.com/current/google_transit.zip',
+            // To avoid ID conflicts with other agencies
+            // the library stores all the GTFS items in a single SQLite table
             prefix: 'peterborough'
         },
         {

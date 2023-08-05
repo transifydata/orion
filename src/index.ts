@@ -4,8 +4,6 @@ import * as NextBus from './providers/nextbus'
 import * as Realtime from './providers/gtfs-realtime'
 import {parseGTFS, resetGtfs} from "./gtfs-parser";
 import {config} from "./config";
-import fs from "fs";
-import {openDb} from "gtfs";
 import {resetGtfsIfNeeded} from "./reset-gtfs";
 
 const interval = 10000; // ms
@@ -18,8 +16,6 @@ export interface Agency {
     tripUpdatesUrl?: string,
     nextbus_agency_id?: string
 }
-
-
 
 if (!config || !config.agencies || !config.agencies.length) {
     throw new Error("No agencies specified in config.");
@@ -62,7 +58,6 @@ var agenciesInfo = config.agencies.map((agencyConfig) => {
 // wait until the next multiple of 15 seconds
 
 
-let counter = 0;
 
 
 async function saveVehicles() {
@@ -86,7 +81,7 @@ async function saveVehicles() {
         return providerCode.getVehicles(agencyInfo)
             .then((vehicles) => {
                 writeToSink(agencyInfo, currentTime, vehicles);
-                // return writeToS3(s3Bucket, agencyInfo.id, currentTime, vehicles);
+                return writeToS3(s3Bucket, agencyInfo.id, currentTime, vehicles);
             })
             .catch((err) => {
                 console.log(err);
@@ -99,7 +94,6 @@ async function saveVehicles() {
 }
 
 function saveVehiclesRepeat(){
-    counter += 1;
 
     saveVehicles().then(() => {
         setTimeout(saveVehiclesRepeat, interval);
