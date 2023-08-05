@@ -5,9 +5,10 @@ import sqlite3 from "sqlite3";
 import {Agency} from "../index";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import {getClosestScheduledStopTime, getRouteByRouteId, getTripDetails} from "../gtfs-parser.js";
+import Long from "long";
+import {getTrips} from "gtfs";
 import TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
 import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
-import Long from "long";
 
 const databasePath = (process.env['ORION_DATABASE_PATH'] || '.') + '/orion-database.db';
 
@@ -49,8 +50,6 @@ async function writeValue(db: Database, value: VehiclePosition, time: number, se
 
     const column_expr = Object.keys(colon).join(',')
 
-    console.log("Inserting: ", column_expr, colon)
-
     const table_name = map_provider_to_table_name(agency.provider)
     try {
         // Automatic duplicate checking, so use INSERT OR IGNORE...
@@ -72,8 +71,21 @@ function map_provider_to_table_name(provider: string) {
             throw new Error("Unknown agency provider: " + provider)
     }
 }
+
+export async function fixData(agency_id: string, data: VehiclePosition) {
+    // Right now only implemented for Peterborough
+    // Adds `rid` field if it's null
+    if (data.rid === '') {
+        if (data.tripId === '') {
+            throw new Error("Unexpected...route id and trip id is both null")
+        }
+        data.rid = getTrips({trip_id: agency_id + data.tripId}, ['route_id'])[0].route_id.replace(agency_id, '');
+    }
+}
 export async function writeToSink(agency: Agency, currentTime: number, data: VehiclePosition[]) {
     const db = await openDb();
+
+    data.forEach((v) => fixData(agency.id, v));
 
     const currentDate = new Date().toISOString().slice(0, 10);
 

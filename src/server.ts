@@ -2,12 +2,29 @@ import express from 'express'
 
 import * as sql from './sinks/sqlite-sink.js'
 import cors from 'cors'
+import {FeatureCollection} from "@turf/helpers";
+import {getAllRoutesWithShapes, parseGTFS, Route} from "./gtfs-parser";
 
 
 const app = express();
 
 app.use(cors())
 
+
+await parseGTFS();
+
+
+let ROUTES_CACHE: Route[] | undefined = undefined;
+
+
+app.get('/routes/brampton', async (req, res) => {
+    if (ROUTES_CACHE === undefined) {
+        ROUTES_CACHE = await getAllRoutesWithShapes();
+        res.json(ROUTES_CACHE);
+    } else {
+        res.json(ROUTES_CACHE);
+    }
+});
 
 
 app.get('/positions/:agency', async (req, res) => {

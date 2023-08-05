@@ -2,8 +2,9 @@ import {migrateDbs, writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-si
 import {writeToS3} from './sinks/s3Helper';
 import * as NextBus from './providers/nextbus'
 import * as Realtime from './providers/gtfs-realtime'
-import {parseGTFS} from "./gtfs-parser";
+import {parseGTFS, resetGtfs} from "./gtfs-parser";
 import {config} from "./config";
+import {resetGtfsIfNeeded} from "./reset-gtfs";
 
 const interval = 10000; // ms
 
@@ -15,8 +16,6 @@ export interface Agency {
     tripUpdatesUrl?: string,
     nextbus_agency_id?: string
 }
-
-
 
 if (!config || !config.agencies || !config.agencies.length) {
     throw new Error("No agencies specified in config.");
@@ -59,7 +58,10 @@ var agenciesInfo = config.agencies.map((agencyConfig) => {
 // wait until the next multiple of 15 seconds
 
 
-function saveVehicles() {
+
+
+async function saveVehicles() {
+    await resetGtfsIfNeeded();
 
     const promises = agenciesInfo.map((agencyInfo) => {
         console.log("Working on", agencyInfo.id)
@@ -86,7 +88,16 @@ function saveVehicles() {
             });
     });
 
-    Promise.all(promises);
+    await Promise.all(promises);
+
+    return;
+}
+
+function saveVehiclesRepeat(){
+
+    saveVehicles().then(() => {
+        setTimeout(saveVehiclesRepeat, interval);
+    })
 }
 
 
@@ -94,8 +105,7 @@ async function start() {
     // Uncomment to load the GTFS (it's currently loaded and already exists in gtfs.db
     await parseGTFS();
     await migrateDbs();
-    saveVehicles();
-    setInterval(saveVehicles, interval);
+    saveVehiclesRepeat();
 }
 
 start().catch(e => {
