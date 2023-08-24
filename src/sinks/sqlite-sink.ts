@@ -4,17 +4,16 @@ import {Database, open} from 'sqlite'
 import sqlite3 from "sqlite3";
 import {Agency} from "../index";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
-import {getClosestScheduledStopTime, getRouteByRouteId, getTripDetails} from "../gtfs-parser.js";
+import {getClosestScheduledStopTime,} from "../gtfs-parser.js";
 import Long from "long";
-import {getTrips} from "gtfs";
 import TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
 import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
+import {UpdatingGtfsFeed} from "../updating-gtfs-feed";
 
 const databasePath = (process.env['ORION_DATABASE_PATH'] || '.') + '/orion-database.db';
 
 let lastPruned = 0;
 
-console.log("Using database ", databasePath)
 async function openDb() {
     return open({
         filename: databasePath,
@@ -72,24 +71,34 @@ function map_provider_to_table_name(provider: string) {
     }
 }
 
-export async function fixData(agency_id: string, data: VehiclePosition) {
+// function getTripsWithAgency(agency_id: string, trip_ids: string[]) {
+//     return getTrips({trip_id: trip_ids}, ['route_id']);
+// }
+
+export async function fixData(gtfs: UpdatingGtfsFeed, agency_id: string, data: VehiclePosition) {
     // Right now only implemented for Peterborough
     // Adds `rid` field if it's null
     if (data.rid === '') {
         if (data.tripId === '') {
             throw new Error("Unexpected...route id and trip id is both null")
         }
-        data.rid = getTrips({trip_id: agency_id + data.tripId}, ['route_id'])[0].route_id.replace(agency_id, '');
+        const trip = gtfs.getTrips({trip_id: data.tripId}, ['route_id'])[0];
+
+        if (trip === undefined) {
+            let wtf = 5;
+        }
+        data.rid = trip.route_id.replace(agency_id, '');
     }
 }
-export async function writeToSink(agency: Agency, currentTime: number, data: VehiclePosition[]) {
+export async function writeToSink(gtfs: UpdatingGtfsFeed, agency: Agency, currentTime: number, data: VehiclePosition[]) {
     const db = await openDb();
 
-    data.forEach((v) => fixData(agency.id, v));
+    data.forEach((v) => fixData(gtfs, agency.id, v));
 
     const currentDate = new Date().toISOString().slice(0, 10);
 
     await Promise.all(data.map(v => writeValue(db, v, currentTime, currentDate, agency)))
+
 }
 
 export interface SQLVehiclePosition extends VehiclePosition, TripUpdate {
@@ -98,7 +107,15 @@ export interface SQLVehiclePosition extends VehiclePosition, TripUpdate {
     server_time: number;
 }
 
+function getRouteByRouteId(feed: UpdatingGtfsFeed, routeId: string) {
+    const ret = feed.getRoutes({
+        route_id: routeId
+    }, ['route_long_name', 'route_short_name'])
+    return ret[0];
+}
+
 export async function getVehicleLocations(agency: string): Promise<VehiclePosition[]> {
+    const feed = await UpdatingGtfsFeed.getFeed(agency);
     const db = await openDb();
     const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
 
@@ -130,15 +147,16 @@ WITH latest_vehicle_positions AS
         WHERE vp.server_time >= :server_time;`, {':server_time': fiveMinutesAgo, ':agency_id': agency})
 
     return rows.map(r => {
-        const routeAttr = getRouteByRouteId(r.rid);
-        const tripAttr = getTripDetails(r.tripId);
+        const routeAttr = getRouteByRouteId(feed, r.rid);
+
+        const tripAttr = feed.getTrips({trip_id: r.tripId}, ['direction_id', 'trip_headsign'])[0];
         console.log(tripAttr.trip_headsign, r.vid, r.delay)
         return {...r, lat: parseFloat(r.lat), lon: parseFloat(r.lon), ...routeAttr, ...tripAttr}
     });
 }
 
 
-function convertToSQL(tripUpdate: GtfsRealtimeBindings.transit_realtime.TripUpdate, run_time: number, agency_id: string): string {
+function convertToSQL(feed: UpdatingGtfsFeed, tripUpdate: GtfsRealtimeBindings.transit_realtime.TripUpdate, run_time: number, agency_id: string): string {
     const {
         trip,
         stopTimeUpdate,
@@ -157,7 +175,7 @@ function convertToSQL(tripUpdate: GtfsRealtimeBindings.transit_realtime.TripUpda
         return [a.stopId, a.departure?.delay];
     }));
 
-    const stopTime = getClosestScheduledStopTime(st, tripId, (timestamp as Long).toInt());
+    const stopTime = getClosestScheduledStopTime(feed, st, tripId, (timestamp as Long).toInt());
     const nextStop = stopTimeUpdate.find(a => {
         return a.stopId == stopTime?.stop_id;
     });
@@ -178,22 +196,19 @@ function convertToSQL(tripUpdate: GtfsRealtimeBindings.transit_realtime.TripUpda
     VALUES ('${tripId}', '${startTime}', '${startDate}', '${routeId}', ${delay}, '${stopTimeUpdates}', ${timestamp}, ${run_time}, '${agency_id}', '${scheduleRelationship}', ${directionId}, '${vehicleId}')`;
 }
 
-export async function writeTripUpdatesToSink(agency: Agency, currentTime: number, data: TripUpdate[]) {
+export async function writeTripUpdatesToSink(feed: UpdatingGtfsFeed, agency: Agency, currentTime: number, data: TripUpdate[]) {
     const db = await openDb();
 
     await pruneDb(db, currentTime);
 
     for (const update of data) {
-        const sql = convertToSQL(update, currentTime, agency.id);
+        const sql = convertToSQL(feed, update, currentTime, agency.id);
 
-        try {
-            // Automatic duplicate checking, so use INSERT OR IGNORE...
-            await db.run(`INSERT OR IGNORE INTO trip_update ${sql};`)
-        } catch (e) {
-            console.error("Error inserting " + e + " " + JSON.stringify(update))
-            throw e;
-        }
+        // Automatic duplicate checking, so use INSERT OR IGNORE...
+        await db.run(`INSERT OR IGNORE INTO trip_update ${sql};`)
+
     }
+
 }
 
 async function pruneDb(db, currentTime: number) {
