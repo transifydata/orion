@@ -84,9 +84,6 @@ export async function fixData(gtfs: UpdatingGtfsFeed, agency_id: string, data: V
         }
         const trip = gtfs.getTrips({trip_id: data.tripId}, ['route_id'])[0];
 
-        if (trip === undefined) {
-            let wtf = 5;
-        }
         data.rid = trip.route_id.replace(agency_id, '');
     }
 }

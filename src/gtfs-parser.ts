@@ -49,7 +49,7 @@ export function getClosestScheduledStopTime(gtfs: UpdatingGtfsFeed, delays: Reco
         }
     }
 
-    // console.warn(`Could not find appropriate stop time for ${tripId} with ${timestamp} ${timeOfDay}. Trip probably already ended?`)
+    console.warn(`WARNING: Couldn't find stop time for ${tripId} with ${timestamp} ${timeOfDay}. Trip probably already ended?`)
     return undefined;
 }
 
@@ -61,7 +61,7 @@ export async function resetGtfs() {
 
 export async function getAllRoutesWithShapes(agency: string): Promise<Array<Route>> {
     const feed = await UpdatingGtfsFeed.getFeed(agency);
-    const routes = await feed.getRoutes({}, ['route_id', 'route_short_name', 'route_long_name']);
+    const routes = feed.getRoutes({}, ['route_id', 'route_short_name', 'route_long_name']);
 
     return Promise.all(routes.map(async r => {
         return {

@@ -1,39 +1,34 @@
 import fs from "fs";
-import {closeDb, getRoutes, getShapesAsGeoJSON, getStops, getStoptimes, getTrips, openDb as openDb_internal} from 'gtfs'
+import {
+  closeDb,
+  getRoutes,
+  getShapesAsGeoJSON,
+  getStops,
+  getStoptimes,
+  getTrips,
+  openDb as openDb_internal,
+} from "gtfs";
 import axios from "axios";
-import {Database} from "better-sqlite3";
+import { Database } from "better-sqlite3";
 
-function fileExists(filename) {
-    try {
-        const stats = fs.statSync(filename);
-        if (stats.isFile() && stats.size > 0) {
-            return true;
-        }
-    } catch (err) {
-        // Handle any errors, e.g., file not found
-    }
-    return false;
-}
-
-// const gtfsDatabasePath = (process.env['ORION_DATABASE_PATH'] || '.') + '/gtfs.db';
 const config = {
-    sqlitePath: undefined as string | undefined,
-    agencies: [
-        {
-            url: 'https://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip',
-            prefix: undefined
-        },
-        {
-            // Peterborough
-            url: 'http://pt.mapstrat.com/current/google_transit.zip',
-            // To avoid ID conflicts with other agencies
-            // the library stores all the GTFS items in a single SQLite table
-            prefix: 'peterborough'
-        },
-        {
-            url: 'https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip',
-        }
-    ],
+  sqlitePath: undefined as string | undefined,
+  agencies: [
+    {
+      url: "https://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip",
+      prefix: undefined,
+    },
+    {
+      // Peterborough
+      url: "http://pt.mapstrat.com/current/google_transit.zip",
+      // To avoid ID conflicts with other agencies
+      // the library stores all the GTFS items in a single SQLite table
+      prefix: "peterborough",
+    },
+    {
+      url: "https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip",
+    },
+  ],
 };
 
 function openDb(config, agency) {
@@ -45,10 +40,19 @@ function getFilepath(agency): string {
     return `gtfs-${agency}.db`;
 }
 
+function getCurrentFormattedDate() {
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
 async function downloadFromGtfsService(agency: string) {
     const response = await axios({
         method: 'get',
-        url: `https://staging-api.transify.ca/api/gtfs/db?agency=${agency}&date=2023-09-10`,
+        url: `https://staging-api.transify.ca/api/gtfs/db?agency=${agency}&date=${getCurrentFormattedDate()}`,
         responseType: 'stream', // Important to handle the response as a stream
     });
 

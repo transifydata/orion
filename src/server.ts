@@ -11,7 +11,7 @@ const app = express();
 
 app.use(cors())
 
-UpdatingGtfsFeed.initializeAll();
+await UpdatingGtfsFeed.initializeAll();
 
 
 let ROUTES_CACHE: Route[] | undefined = undefined;

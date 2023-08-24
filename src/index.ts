@@ -1,11 +1,10 @@
 import {migrateDbs, writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-sink";
-import {writeToS3} from './sinks/s3Helper';
 import * as NextBus from './providers/nextbus'
 import * as Realtime from './providers/gtfs-realtime'
 import {config} from "./config";
 import {resetGtfsIfNeeded} from "./reset-gtfs";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
-import {resetGtfs} from "./gtfs-parser";
+import {writeToS3} from "./sinks/s3Helper";
 
 const interval = 10000; // ms
 
@@ -81,7 +80,7 @@ async function saveVehicles() {
         await providerCode.getVehicles(agencyInfo)
             .then((vehicles) => {
                 return writeToSink(db, agencyInfo, currentTime, vehicles).then(() => {
-                    // writeToS3(s3Bucket, agencyInfo.id, currentTime, vehicles);
+                    writeToS3(s3Bucket, agencyInfo.id, currentTime, vehicles);
                 })
             })
             .catch((err) => {
@@ -99,7 +98,7 @@ function saveVehiclesRepeat() {
 
     saveVehicles().then(() => {
         console.log("Done running! Scheduling next one")
-        setTimeout(saveVehiclesRepeat, 1500);
+        setTimeout(saveVehiclesRepeat, interval);
     })
 }
 

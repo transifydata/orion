@@ -66,7 +66,7 @@ export function getVehicles(config) {
     const url = config.gtfs_realtime_url;
     console.log('fetching vehicles from ' + url);
 
-    var requestSettings = {
+    const requestSettings = {
         method: 'GET',
         url: url,
         encoding: null
@@ -125,7 +125,7 @@ export interface VehiclePosition {
     label?: Value;
 }
 
-function makeVehicle(gtfsVehiclePosition, feedTimestamp, vehicleIdKey): VehiclePosition {
+function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): VehiclePosition {
     // GTFS-Realtime API returns vehicles like this:
     // VehiclePosition {
     //   trip: TripDescriptor { tripId: '9420711', routeId: '190' },
