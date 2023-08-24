@@ -2,6 +2,7 @@ import {Feature, FeatureCollection, Geometry, Position} from '@turf/helpers'
 
 import moment from 'moment-timezone'
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
+import {convertApiRouteToRoute, downloadRoutesFromTransifyApi} from "./transify-api-connector";
 
 
 export interface Stop {
@@ -59,17 +60,18 @@ export async function resetGtfs() {
     await UpdatingGtfsFeed.updateAll();
 }
 
-export async function getAllRoutesWithShapes(agency: string): Promise<Array<Route>> {
-    const feed = await UpdatingGtfsFeed.getFeed(agency);
-    const routes = feed.getRoutes({}, ['route_id', 'route_short_name', 'route_long_name']);
 
-    return Promise.all(routes.map(async r => {
-        return {
-            ...r,
-            shape: await getShapeForRoute(feed, r.route_id, r),
-            stops: await getStopByRoute(feed, r.route_id)
-        } as Route;
-    }));
+export async function getAllRoutesWithShapes(agency: string): Promise<Array<Route>> {
+    const routes1 = await downloadRoutesFromTransifyApi(agency);
+    const feed = await UpdatingGtfsFeed.getFeed(agency);
+
+    const promises = routes1.features.map(async feature => {
+        const route_obj: Route = convertApiRouteToRoute(feature,await getStopByRoute(feed, feature.properties.route_id))
+        return route_obj;
+    })
+
+    return Promise.all(promises);
+
 }
 
 async function getShapeForRoute(feed: UpdatingGtfsFeed, routeId: string, properties: Record<string, any>): Promise<Feature> {
