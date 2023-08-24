@@ -5,3 +5,6 @@ DS_STORE
 docker-compose.override.yml
 gtfs.db*
 orion-database.db*
+
+# Exclude database and WAL files
+gtfs-*.db*

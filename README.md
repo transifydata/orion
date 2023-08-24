@@ -41,3 +41,10 @@ Orion has two parts: an API server that responds to requests from `trips-viewer`
 To run the API server: `yarn serve`
 
 To run the worker: `yarn start`
+
+## Deploying a test version
+
+To deploy a test version of orion to Kubernetes without merging into master, simply push the tag "manual-deploy" to Github, and 
+that tag will be automatically deployed to Kubernetes. To reset back to previous master, push an empty commit to master or 
+re-run `orion-deploy-trigger` in Google Cloud Build.
+

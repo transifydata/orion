@@ -66,13 +66,14 @@ export async function getAllRoutesWithShapes(agency: string): Promise<Array<Rout
     return Promise.all(routes.map(async r => {
         return {
             ...r,
-            shape: await getShapeForRoute(feed, r.id, r),
-            stops: await getStopByRoute(feed, r.id)
+            shape: await getShapeForRoute(feed, r.route_id, r),
+            stops: await getStopByRoute(feed, r.route_id)
         } as Route;
     }));
 }
 
 async function getShapeForRoute(feed: UpdatingGtfsFeed, routeId: string, properties: Record<string, any>): Promise<Feature> {
+    console.assert(routeId !== undefined, "routeId is undefined")
     const shapes = feed.getShapesAsGeoJSON({route_id: routeId});
 
     // For some reason this returns a FeatureCollection of LineStrings.
