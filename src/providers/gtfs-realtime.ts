@@ -139,7 +139,6 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
     //   timestamp: 1571000916,
     //   stopId: '11507',
     //   vehicle: VehicleDescriptor { id: '230', label: 'Yellow Line to City Ctr/Milw' } }
-
     const {
         trip,
         position,
