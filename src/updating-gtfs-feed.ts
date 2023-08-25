@@ -10,6 +10,7 @@ import {
 } from "gtfs";
 import axios from "axios";
 import { Database } from "better-sqlite3";
+import {getCurrentFormattedDate} from "./transify-api-connector";
 
 const config = {
   sqlitePath: undefined as string | undefined,
