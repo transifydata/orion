@@ -61,7 +61,7 @@ export async function resetGtfs() {
 }
 
 
-export async function getAllRoutesWithShapes(agency: string): Promise<Array<Route>> {
+export async function getAllRoutesWithShapes(agency: string): Promise<Route[]> {
     const routes1 = await downloadRoutesFromTransifyApi(agency);
     const feed = await UpdatingGtfsFeed.getFeed(agency);
 

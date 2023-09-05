@@ -96,7 +96,7 @@ export class UpdatingGtfsFeed {
     }
 
     static async initializeAll() {
-        for (const agency of ["brampton", "barrie"]) {
+        for (const agency of ["brampton", "barrie", "go_transit"]) {
             UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
         }
     }

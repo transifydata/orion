@@ -147,7 +147,11 @@ WITH latest_vehicle_positions AS
         const routeAttr = getRouteByRouteId(feed, r.rid);
 
         const tripAttr = feed.getTrips({trip_id: r.tripId}, ['direction_id', 'trip_headsign'])[0];
-        console.log(tripAttr.trip_headsign, r.vid, r.delay)
+        if (tripAttr) {
+            console.log(tripAttr.trip_headsign, r.vid, r.delay)
+        } else {
+            console.warn("No trip attr for", r.tripId)
+        }
         return {...r, lat: parseFloat(r.lat), lon: parseFloat(r.lon), ...routeAttr, ...tripAttr}
     });
 }

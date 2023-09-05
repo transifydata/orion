@@ -30,12 +30,12 @@ export const config: {agencies: Agency[], s3_bucket: string} = {
             "provider": "gtfs-realtime",
             "gtfs_realtime_url": "http://www.myridebarrie.ca/gtfs/GTFS_VehiclePositions.pb"
         },
-        // {
-        //     "id": "go",
-        //     "provider": "gtfs-realtime",
-        //     "tripUpdatesUrl": "http://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs.proto/Feed/TripUpdates?key=30021152",
-        //     "gtfs_realtime_url": "http://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs.proto/Feed/VehiclePosition?key=30021152"
-        // }
+        {
+            "id": "go_transit",
+            "provider": "gtfs-realtime",
+            "tripUpdatesUrl": "http://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs.proto/Feed/TripUpdates?key=30021152",
+            "gtfs_realtime_url": "http://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs.proto/Feed/VehiclePosition?key=30021152"
+        }
         // Add new agencies here:
 
     ]
