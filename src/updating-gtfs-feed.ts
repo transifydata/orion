@@ -132,6 +132,7 @@ export class UpdatingGtfsFeed {
         if (UpdatingGtfsFeed.AGENCY_MAP[agency] === undefined) {
             UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
         }
+        console.log("Returning feed for", agency)
         return UpdatingGtfsFeed.AGENCY_MAP[agency];
     }
 

@@ -1,15 +1,17 @@
-import {Feature, FeatureCollection, Geometry, Position} from '@turf/helpers'
+import { Feature, FeatureCollection, Geometry } from "@turf/helpers";
 
-import moment from 'moment-timezone'
-import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
-import {convertApiRouteToRoute, downloadRoutesFromTransifyApi} from "./transify-api-connector";
-
+import moment from "moment-timezone";
+import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
+import {
+  convertApiRouteToRoute,
+  downloadRoutesFromTransifyApi,
+} from "./transify-api-connector";
 
 export interface Stop {
-    id: string;
-    name: string;
-    lat: number;
-    lon: number;
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
 }
 
 export interface Route {
@@ -65,41 +67,15 @@ export async function getAllRoutesWithShapes(agency: string): Promise<Route[]> {
     const routes1 = await downloadRoutesFromTransifyApi(agency);
     const feed = await UpdatingGtfsFeed.getFeed(agency);
 
-    const promises = routes1.features.map(async feature => {
-        const route_obj: Route = convertApiRouteToRoute(feature,await getStopByRoute(feed, feature.properties.route_id))
+    return routes1.features.map(feature => {
+        console.log("Processing route", feature.properties.route_id)
+        const route_obj: Route = convertApiRouteToRoute(feature, getStopByRoute(feed, feature.properties.route_id))
         return route_obj;
-    })
-
-    return Promise.all(promises);
+    });
 
 }
 
-async function getShapeForRoute(feed: UpdatingGtfsFeed, routeId: string, properties: Record<string, any>): Promise<Feature> {
-    console.assert(routeId !== undefined, "routeId is undefined")
-    const shapes = feed.getShapesAsGeoJSON({route_id: routeId});
-
-    // For some reason this returns a FeatureCollection of LineStrings.
-    // Convert this to a MultiLineString by appending all the LineStrings together
-
-    if (shapes.features.length > 0 && shapes.features.every(f => f.geometry.type === "LineString")) {
-        const multiLineStringCoords = shapes.features.map(f => {
-            return f.geometry.coordinates;
-        });
-
-        return {
-            type: "Feature",
-            geometry: {
-                type: "MultiLineString",
-                coordinates: multiLineStringCoords as Position[][][]
-            },
-            properties: properties
-        }
-    } else {
-        throw new Error("Unexpected shape type: " + shapes.features[0].geometry.type)
-    }
-}
-
-async function getStopByRoute(feed: UpdatingGtfsFeed, routeId: string): Promise<FeatureCollection<Geometry, Stop>> {
+function getStopByRoute(feed: UpdatingGtfsFeed, routeId: string): FeatureCollection<Geometry, Stop> {
     const stops = feed.getStops({route_id: routeId}, []);
 
     const features: Array<Feature<Geometry, Stop>> = stops.map(stop => {

@@ -48,6 +48,7 @@ export function getCurrentFormattedDate() {
     return `${year}-${month}-${day}`;
 }
 export async function downloadRoutesFromTransifyApi(agency: string): Promise<FeatureCollection<Geometry, Route>> {
+    const start = performance.now();
     const response = await axios({
         method: 'get',
         url: `https://staging-api.transify.ca/api/routes?agency=${agency}&date=${getCurrentFormattedDate()}`,
@@ -57,5 +58,7 @@ export async function downloadRoutesFromTransifyApi(agency: string): Promise<Fea
         throw new Error("Could not download GTFS" + response.status + response.statusText)
     }
 
+    const end = performance.now();
+    console.log(`Downloaded routes in ${end - start}ms`);
     return response.data;
 }
