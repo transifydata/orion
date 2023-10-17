@@ -6,7 +6,7 @@ import {resetGtfsIfNeeded} from "./reset-gtfs";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {writeToS3} from "./sinks/s3Helper";
 
-const interval = 10000; // ms
+const interval = 8000; // ms
 
 
 export interface Agency {

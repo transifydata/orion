@@ -10,13 +10,15 @@ const lastTimeStampCache = {}
 
 function shouldProcessUpdate(agency: string, function_name: string, feed_timestamp: number): boolean {
     // Whether to process an update depending on if the `feed_timestamp` (when the feed was created) has changed
-    const cacheKey = agency + function_name + feed_timestamp.toString();
-    if (!lastTimeStampCache[cacheKey]) {
-        lastTimeStampCache[cacheKey] = true;
-        return true;
-    } else {
-        return false;
-    }
+    // TEMP FIX: Process all updates since feedTimestamp is slightly buggy in the agency's implementation
+    return true
+    // const cacheKey = agency + function_name + feed_timestamp.toString();
+    // if (!lastTimeStampCache[cacheKey]) {
+    //     lastTimeStampCache[cacheKey] = true;
+    //     return true;
+    // } else {
+    //     return false;
+    // }
 }
 
 export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
@@ -86,7 +88,7 @@ export function getVehicles(config) {
 
                 if (shouldProcessUpdate(config.id, 'getVehicles', (feed?.header?.timestamp as Long).toNumber())) {
                     const vehicles: VehiclePosition[] = [];
-                    const feedTimestamp = feed.header.timestamp;
+                    const feedTimestamp = Date.now();
                     feed.entity.forEach(function (entity) {
                         const gtfsVehiclePosition = entity.vehicle;
                         if (isVehicle(gtfsVehiclePosition)) {

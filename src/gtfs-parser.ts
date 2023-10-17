@@ -48,11 +48,12 @@ export function getClosestScheduledStopTime(gtfs: UpdatingGtfsFeed, delays: Reco
         const stopDelay = delays[st.stop_id];
         lastDelay = stopDelay ? stopDelay : lastDelay;
         if (HHMMSSToSeconds(st.departure_time) + lastDelay >= timeOfDay) {
+            // console.log(`Found stop time for trip ${gtfs.agency} ${tripId}`)
             return st;
         }
     }
 
-    console.warn(`WARNING: Couldn't find stop time for ${tripId} with ${timestamp} ${timeOfDay}. Trip probably already ended?`)
+    console.warn(`WARNING: Couldn't find stop time for ${gtfs.agency} ${tripId} with ${timestamp} ${timeOfDay}. Trip probably already ended?`)
     return undefined;
 }
 
