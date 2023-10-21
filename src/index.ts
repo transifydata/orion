@@ -68,7 +68,8 @@ async function saveVehicles() {
 
         if (!providerCode) throw new Error("Invalid provider name")
 
-        const currentTime = Date.now();
+        // Use seconds timestamp as to be consistent with GTFS-RT feeds.
+        const currentTime = Math.round(Date.now() / 1000);
 
         if (agencyInfo.tripUpdatesUrl !== undefined) {
             await providerCode.getTripUpdates(agencyInfo).then(updates => {
