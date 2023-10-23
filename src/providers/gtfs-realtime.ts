@@ -88,7 +88,7 @@ export function getVehicles(config) {
 
                 if (shouldProcessUpdate(config.id, 'getVehicles', (feed?.header?.timestamp as Long).toNumber())) {
                     const vehicles: VehiclePosition[] = [];
-                    const feedTimestamp = Date.now() / 1000;
+                    const feedTimestamp = Date.now();
                     feed.entity.forEach(function (entity) {
                         const gtfsVehiclePosition = entity.vehicle;
                         if (isVehicle(gtfsVehiclePosition)) {
