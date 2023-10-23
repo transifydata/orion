@@ -151,6 +151,21 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
         currentStatus,
     } = gtfsVehiclePosition;
 
+    const getSecsSinceReport = (feedTimestamp, timestamp) => {
+        // Timestamps might be in milliseconds if derived from date.now or from
+        // seconds if from the GTFS-RT feed.
+        if (feedTimestamp == null || timestamp == null) {
+            return null;
+        }
+        if (feedTimestamp != null && feedTimestamp > 2147483647) {
+            feedTimestamp = Math.round(feedTimestamp / 1000);
+        }
+        if (timestamp != null && timestamp > 2147483647) {
+            timestamp = Math.round(timestamp / 1000);
+        }
+        return Math.max(0, feedTimestamp - timestamp);
+    }
+
     const orionVehicle = {
         rid: trip.routeId,
         vid: vehicle.id,
@@ -160,7 +175,7 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
         tripId: trip.tripId,
         stopIndex: currentStopSequence,
         status: currentStatus,
-        secsSinceReport: (feedTimestamp != null && timestamp != null) ? Math.max(0, feedTimestamp - timestamp) : null,
+        secsSinceReport: getSecsSinceReport(feedTimestamp, timestamp),
         stopId: undefined,
         label: undefined
     };
