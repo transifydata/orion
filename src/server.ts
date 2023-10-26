@@ -30,7 +30,12 @@ app.get('/routes/:agency', async (req, res) => {
 
 app.get('/positions/:agency', async (req, res) => {
     const agency = req.params.agency;
-    res.json(await sql.getVehicleLocations(agency))
+    let time: number | undefined = undefined; // Default to null if "time" parameter is not provided
+
+    if (req.query.time && typeof req.query.time === 'string') {
+        time = parseInt(req.query.time); // Parse the "time" parameter as an integer
+    }
+    res.json(await sql.getVehicleLocations(agency, time))
 });
 
 app.get('/', async (req, res) => {

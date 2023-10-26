@@ -111,10 +111,17 @@ function getRouteByRouteId(feed: UpdatingGtfsFeed, routeId: string) {
     return ret[0];
 }
 
-export async function getVehicleLocations(agency: string): Promise<VehiclePosition[]> {
+export async function getVehicleLocations(agency: string, time: number | undefined): Promise<VehiclePosition[]> {
     const feed = await UpdatingGtfsFeed.getFeed(agency);
     const db = await openDb();
-    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+
+    let now = Date.now();
+
+    if (time) {
+        now = time;
+    }
+
+    const startTimeBuffer = now - 5 * 60 * 1000;
 
     const rows: SQLVehiclePosition[] = await db.all(`
 WITH latest_vehicle_positions AS
@@ -124,6 +131,7 @@ WITH latest_vehicle_positions AS
         INNER JOIN (
           SELECT vid, MAX(server_time) AS max_time
           FROM vehicle_position
+          WHERE server_time BETWEEN :start_time AND :end_time
           GROUP BY vid
         ) latest ON vp.vid = latest.vid AND vp.server_time = latest.max_time AND vp.agency_id = :agency_id),
 
@@ -134,14 +142,14 @@ WITH latest_vehicle_positions AS
         INNER JOIN (
           SELECT vehicle_id, MAX(server_time) AS max_time
           FROM trip_update
+          WHERE server_time BETWEEN :start_time AND :end_time
           GROUP BY vehicle_id
         ) latest ON tu.vehicle_id = latest.vehicle_id AND tu.ROWID AND tu.server_time = latest.max_time AND tu.agency_id = :agency_id)
 
         SELECT *
         FROM latest_vehicle_positions vp
-        INNER JOIN latest_trip_updates tu
-            ON tu.vehicle_id = vp.vid AND tu.trip_id=vp.tripId
-        WHERE vp.server_time >= :server_time;`, {':server_time': fiveMinutesAgo, ':agency_id': agency})
+        LEFT OUTER JOIN latest_trip_updates tu
+            ON tu.vehicle_id = vp.vid AND tu.trip_id=vp.tripId;`, {':start_time': startTimeBuffer, ':end_time': now, ':agency_id': agency})
 
     return rows.map(r => {
         const routeAttr = getRouteByRouteId(feed, r.rid);
@@ -213,11 +221,10 @@ export async function writeTripUpdatesToSink(feed: UpdatingGtfsFeed, agency: Age
 }
 
 async function pruneDb(db, currentTime: number) {
-    // Run approximately every 5 hours
-    if (currentTime - lastPruned > 5 * 3600 * 1000) {
+    if (currentTime - lastPruned > 10 * 3600 * 1000) {
         lastPruned = currentTime;
-        // Delete records older than 5 hours
-        const prunePast = currentTime - 5 * 3600 * 1000;
+        // Prune all records older than 50 days ago
+        const prunePast = currentTime - 50 * 24 * 3600 * 1000;
         const deletedRows1 = await db.run(`DELETE FROM trip_update WHERE server_time < ${prunePast}`)
         const deletedRows2 = await db.run(`DELETE FROM vehicle_position WHERE server_time < ${prunePast}`)
 

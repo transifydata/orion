@@ -4,7 +4,6 @@
 import {resetGtfs} from "./gtfs-parser";
 
 let isBetween2Am3Am = false;
-let dayCounter = 0;
 
 export async function resetGtfsIfNeeded() {
     const currentDateUTC = new Date();
@@ -19,11 +18,6 @@ export async function resetGtfsIfNeeded() {
     if (isBetween2Am3Am && currentHourInToronto >= 3) {
         // Just passed 3am, reset GTFS
         isBetween2Am3Am = false;
-        dayCounter += 1;
-    }
-
-    // Reset only every thirty days
-    if (dayCounter % 30 == 0) {
         return resetGtfs();
     }
 }
