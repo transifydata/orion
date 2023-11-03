@@ -131,12 +131,13 @@ export class UpdatingGtfsFeed {
     static async getFeed(agency: string): Promise<UpdatingGtfsFeed> {
         if (UpdatingGtfsFeed.AGENCY_MAP[agency] === undefined) {
             UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
+            await UpdatingGtfsFeed.AGENCY_MAP[agency].update();
         }
         console.log("Returning feed for", agency)
         return UpdatingGtfsFeed.AGENCY_MAP[agency];
     }
 
-    private async update() {
+    async update() {
         console.log("Locking database...", this.agency)
         await waitForLock(this.db);
         console.log("Lock successful!", this.agency);

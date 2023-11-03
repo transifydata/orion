@@ -5,6 +5,7 @@ import {config} from "./config";
 import {resetGtfsIfNeeded} from "./reset-gtfs";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {writeToS3} from "./sinks/s3Helper";
+import {resetGtfs} from "./gtfs-parser";
 
 const interval = 8000; // ms
 
@@ -62,32 +63,47 @@ async function saveVehicles() {
     await resetGtfsIfNeeded();
 
     const promises = agenciesInfo.map(async (agencyInfo) => {
-        console.log("Working on", agencyInfo.id)
-        const db = await UpdatingGtfsFeed.openWait(agencyInfo.id);
-        const providerCode = providers[agencyInfo.provider];
+        try {
+          console.log("Working on", agencyInfo.id);
+          const db = await UpdatingGtfsFeed.getFeed(agencyInfo.id);
+          const providerCode = providers[agencyInfo.provider];
 
-        if (!providerCode) throw new Error("Invalid provider name")
+          if (!providerCode) throw new Error("Invalid provider name");
 
-        const currentTime = Date.now();
+          const currentTime = Date.now();
 
-        if (agencyInfo.tripUpdatesUrl !== undefined) {
-            await providerCode.getTripUpdates(agencyInfo).then(updates => {
-                return writeTripUpdatesToSink(db, agencyInfo, currentTime, updates);
-            }).catch(err => {
-                throw err
-            })
-        }
-        await providerCode.getVehicles(agencyInfo)
+          if (agencyInfo.tripUpdatesUrl !== undefined) {
+            await providerCode
+              .getTripUpdates(agencyInfo)
+              .then((updates) => {
+                return writeTripUpdatesToSink(
+                  db,
+                  agencyInfo,
+                  currentTime,
+                  updates,
+                );
+              })
+              .catch((err) => {
+                throw err;
+              });
+          }
+          await providerCode
+            .getVehicles(agencyInfo)
             .then((vehicles) => {
-                return writeToSink(db, agencyInfo, currentTime, vehicles).then(() => {
-                    writeToS3(s3Bucket, agencyInfo.id, currentTime, vehicles);
-                })
+              return writeToSink(db, agencyInfo, currentTime, vehicles).then(
+                () => {
+                  writeToS3(s3Bucket, agencyInfo.id, currentTime, vehicles);
+                },
+              );
             })
             .catch((err) => {
-                console.log(err);
+              console.log(err);
             });
 
-        db.close();
+        } catch (e) {
+            // todo: report these errors to an error tracking service
+            console.error("Error saving vehicles / trip updates for " + agencyInfo.id + " " + e);
+        }
     });
 
     await Promise.all(promises);
@@ -95,7 +111,6 @@ async function saveVehicles() {
 }
 
 function saveVehiclesRepeat() {
-
     saveVehicles().then(() => {
         console.log("Done running! Scheduling next one")
         setTimeout(saveVehiclesRepeat, interval);
