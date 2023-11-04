@@ -129,22 +129,22 @@ WITH latest_vehicle_positions AS
         vp.*
         FROM vehicle_position vp
         INNER JOIN (
-          SELECT vid, MAX(server_time) AS max_time
+          SELECT vid, MAX(server_time) AS max_time, agency_id
           FROM vehicle_position
-          WHERE server_time BETWEEN :start_time AND :end_time
+          WHERE server_time BETWEEN :start_time AND :end_time AND agency_id=:agency_id
           GROUP BY vid
-        ) latest ON vp.vid = latest.vid AND vp.server_time = latest.max_time AND vp.agency_id = :agency_id),
+        ) latest ON vp.vid = latest.vid AND vp.server_time = latest.max_time AND vp.agency_id = latest.agency_id),
 
     latest_trip_updates AS
    (SELECT
         tu.*
         FROM trip_update tu
         INNER JOIN (
-          SELECT vehicle_id, MAX(server_time) AS max_time
+          SELECT vehicle_id, MAX(server_time) AS max_time, agency_id
           FROM trip_update
-          WHERE server_time BETWEEN :start_time AND :end_time
+          WHERE server_time BETWEEN :start_time AND :end_time AND agency_id=:agency_id
           GROUP BY vehicle_id
-        ) latest ON tu.vehicle_id = latest.vehicle_id AND tu.ROWID AND tu.server_time = latest.max_time AND tu.agency_id = :agency_id)
+        ) latest ON tu.vehicle_id = latest.vehicle_id AND tu.server_time = latest.max_time and tu.agency_id = latest.agency_id)
 
         SELECT *
         FROM latest_vehicle_positions vp

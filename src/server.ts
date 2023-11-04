@@ -5,13 +5,14 @@ import * as sql from "./sinks/sqlite-sink.js";
 import cors from "cors";
 import { getAllRoutesWithShapes, resetGtfs, Route } from "./gtfs-parser";
 import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
+import {migrateDbs} from "./sinks/sqlite-sink.js";
 
 const app = express();
 
 app.use(cors())
 
 await UpdatingGtfsFeed.initializeAll();
-
+await migrateDbs();
 
 let ROUTES_CACHE: Record<string, Route[]> = {};
 
