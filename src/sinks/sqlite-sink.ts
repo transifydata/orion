@@ -146,7 +146,7 @@ WITH latest_vehicle_positions AS
           GROUP BY vehicle_id
         ) latest ON tu.vehicle_id = latest.vehicle_id AND tu.server_time = latest.max_time and tu.agency_id = latest.agency_id)
 
-        SELECT *
+        SELECT *, vp.server_time
         FROM latest_vehicle_positions vp
         LEFT OUTER JOIN latest_trip_updates tu
             ON tu.vehicle_id = vp.vid AND tu.trip_id=vp.tripId;`, {':start_time': startTimeBuffer, ':end_time': now, ':agency_id': agency})
