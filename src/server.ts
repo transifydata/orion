@@ -3,7 +3,7 @@ import morgan from "morgan";
 
 import * as sql from "./sinks/sqlite-sink.js";
 import cors from "cors";
-import { getAllRoutesWithShapes, resetGtfs, Route } from "./gtfs-parser";
+import {getAllRoutesWithShapes, getScheduledVehicleLocations, resetGtfs, Route} from "./gtfs-parser";
 import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
 import {migrateDbs} from "./sinks/sqlite-sink.js";
 
@@ -36,7 +36,14 @@ app.get('/positions/:agency', async (req, res) => {
     if (req.query.time && typeof req.query.time === 'string') {
         time = parseInt(req.query.time); // Parse the "time" parameter as an integer
     }
-    res.json(await sql.getVehicleLocations(agency, time))
+
+    console.log("afds", req.query.live)
+    if (req.query.live === 'false') {
+        res.json(await getScheduledVehicleLocations(agency, time || Date.now()))
+        return;
+    } else {
+        res.json(await sql.getLiveVehicleLocations(agency, time))
+    }
 });
 
 app.get('/', async (req, res) => {

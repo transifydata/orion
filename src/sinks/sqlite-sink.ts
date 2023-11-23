@@ -1,4 +1,4 @@
-import {VehiclePosition} from "../providers/gtfs-realtime.js";
+import {validateVehiclePosition, VehiclePosition, VehiclePositionOutput} from "../providers/gtfs-realtime.js";
 
 import {Database, open} from 'sqlite'
 import sqlite3 from "sqlite3";
@@ -22,9 +22,12 @@ async function openDb() {
 }
 
 export async function migrateDbs() {
+    console.log("Starting migrations...")
     const db = await openDb();
     await db.migrate()
+
     await db.run( 'PRAGMA journal_mode = WAL;' );
+
     await pruneDb(db, Date.now());
 
     console.log("Finished migrations")
@@ -111,7 +114,9 @@ function getRouteByRouteId(feed: UpdatingGtfsFeed, routeId: string) {
     return ret[0];
 }
 
-export async function getVehicleLocations(agency: string, time: number | undefined): Promise<VehiclePosition[]> {
+
+
+export async function getLiveVehicleLocations(agency: string, time: number | undefined): Promise<VehiclePositionOutput[]> {
     const feed = await UpdatingGtfsFeed.getFeed(agency);
     const db = await openDb();
 
@@ -160,7 +165,7 @@ WITH latest_vehicle_positions AS
         } else {
             console.warn("No trip attr for", r.tripId)
         }
-        return {...r, lat: parseFloat(r.lat), lon: parseFloat(r.lon), ...routeAttr, ...tripAttr}
+        return validateVehiclePosition({...r, lat: parseFloat(r.lat), lon: parseFloat(r.lon), ...routeAttr, ...tripAttr})
     });
 }
 
@@ -221,7 +226,10 @@ export async function writeTripUpdatesToSink(feed: UpdatingGtfsFeed, agency: Age
 }
 
 async function pruneDb(db, currentTime: number) {
+    // TODO: delete
+    return
     if (currentTime - lastPruned > 10 * 3600 * 1000) {
+        console.log("Pruning...")
         lastPruned = currentTime;
         // Prune all records older than 50 days ago
         const prunePast = currentTime - 50 * 24 * 3600 * 1000;

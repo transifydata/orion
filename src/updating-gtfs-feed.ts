@@ -166,6 +166,11 @@ export class UpdatingGtfsFeed {
         return getStops(query, fields, undefined, {db: this.db})
     }
 
+    getStopLocation(stop_id: string): [number, number] {
+        // Returns a tuple of lat, lon coordinates for a stop_id
+        const ret = this.getStops({stop_id: stop_id}, ['stop_lat', 'stop_lon'])[0];
+        return [parseFloat(ret.stop_lat),parseFloat(ret.stop_lon)];
+    }
     getStoptimes(query: Record<string, any>, fields: Array<string>) {
         return getStoptimes(query, fields, undefined, {db: this.db})
     }

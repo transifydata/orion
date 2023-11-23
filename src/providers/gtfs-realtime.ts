@@ -127,6 +127,30 @@ export interface VehiclePosition {
     label?: Value;
 }
 
+export interface VehiclePositionOutput extends VehiclePosition {
+    delay?: number;
+    trip_headsign: string;
+}
+
+export function validateVehiclePosition(vehiclePosition: any): VehiclePositionOutput {
+    return {
+        rid: vehiclePosition.rid,
+        vid: vehiclePosition.vid,
+        lat: vehiclePosition.lat,
+        lon: vehiclePosition.lon,
+        heading: vehiclePosition.heading,
+        tripId: vehiclePosition.tripId,
+        stopIndex: vehiclePosition.stopIndex,
+        status: vehiclePosition.status,
+        trip_headsign: vehiclePosition.trip_headsign,
+        secsSinceReport: vehiclePosition.secsSinceReport,
+        stopId: vehiclePosition.stopId,
+        label: vehiclePosition.label,
+        delay: vehiclePosition.delay,
+    };
+}
+
+
 function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): VehiclePosition {
     // GTFS-Realtime API returns vehicles like this:
     // VehiclePosition {
