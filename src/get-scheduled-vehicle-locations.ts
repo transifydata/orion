@@ -2,6 +2,7 @@ import moment from "moment-timezone";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import BetterSqlite3 from "better-sqlite3";
 import {VehiclePositionOutput} from "./providers/gtfs-realtime";
+import assert from "assert";
 
 export function HHMMSSToSeconds(time) {
     // Split the time string into hours, minutes, and seconds
@@ -266,9 +267,9 @@ export async function getScheduledVehicleLocations(
 
     const feed = await UpdatingGtfsFeed.getFeed(agency);
 
-    if (!feed.db) throw new Error("No db");
-
     const gtfsDatabase = feed.db;
+
+    assert(gtfsDatabase)
 
     const closestStopTimes = getClosestStopTimes(gtfsDatabase, new Date(time));
     const stopTimesWithLocation = processClosestStopTimes(
