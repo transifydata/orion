@@ -1,11 +1,17 @@
 import express from "express";
 import morgan from "morgan";
 
-import * as sql from "./sinks/sqlite-sink.js";
+import { migrateDbs } from "./sinks/sqlite-sink.js";
 import cors from "cors";
-import {getAllRoutesWithShapes, getScheduledVehicleLocations, resetGtfs, Route} from "./gtfs-parser";
+import {
+  getAllRoutesWithShapes,
+  resetGtfs,
+  Route,
+} from "./gtfs-parser";
 import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
-import {migrateDbs} from "./sinks/sqlite-sink.js";
+import { getLiveVehicleLocations } from "./get-live-vehicle-locations";
+import {getScheduledVehicleLocations} from "./get-scheduled-vehicle-locations";
+import getVehicleLocations from "./get-vehicle-locations";
 
 const app = express();
 
@@ -37,12 +43,11 @@ app.get('/positions/:agency', async (req, res) => {
         time = parseInt(req.query.time); // Parse the "time" parameter as an integer
     }
 
-    console.log("afds", req.query.live)
-    if (req.query.live === 'false') {
-        res.json(await getScheduledVehicleLocations(agency, time || Date.now()))
+    if (req.query.live === 'true') {
+        res.json(await getVehicleLocations(agency, time))
         return;
     } else {
-        res.json(await sql.getLiveVehicleLocations(agency, time))
+        res.json(await getLiveVehicleLocations(agency, time || Date.now()))
     }
 });
 

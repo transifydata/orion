@@ -103,6 +103,7 @@ export class UpdatingGtfsFeed {
 
     static async openWait(agency: string): Promise<UpdatingGtfsFeed> {
         // If file doesn't exist, then download it
+        console.log("Opening ", agency, "...")
         if (!fs.existsSync(getFilepath(agency))) {
             console.log("Downloading GTFS...", agency)
             await downloadFromGtfsService(agency);
