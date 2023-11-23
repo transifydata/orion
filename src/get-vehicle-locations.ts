@@ -11,10 +11,7 @@ export interface LinkedPosition {
 export interface LinkedPositionsOutput {
     [tripId: string]: LinkedPosition;
 }
-export default async function getVehicleLocations(agency: string, time: number | undefined): Promise<LinkedPositionsOutput> {
-    if (time === undefined) {
-        time = Date.now();
-    }
+export default async function getVehicleLocations(agency: string, time: number): Promise<LinkedPositionsOutput> {
     const scheduledPositions = await getScheduledVehicleLocations(agency, time);
     const livePositions = await getLiveVehicleLocations(agency, time);
 

@@ -37,7 +37,7 @@ app.get('/routes/:agency', async (req, res) => {
 
 app.get('/positions/:agency', async (req, res) => {
     const agency = req.params.agency;
-    let time: number | undefined = undefined; // Default to null if "time" parameter is not provided
+    let time = Date.now();
 
     if (req.query.time && typeof req.query.time === 'string') {
         time = parseInt(req.query.time); // Parse the "time" parameter as an integer
@@ -47,7 +47,7 @@ app.get('/positions/:agency', async (req, res) => {
         res.json(await getVehicleLocations(agency, time))
         return;
     } else {
-        res.json(await getLiveVehicleLocations(agency, time || Date.now()))
+        res.json(await getLiveVehicleLocations(agency, time))
     }
 });
 
