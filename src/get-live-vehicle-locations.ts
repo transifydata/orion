@@ -82,9 +82,7 @@ WITH latest_vehicle_positions AS
 
     return rows.map(r => {
         const tripAttr = feed.getTrips({trip_id: r.tripId}, ['direction_id', 'trip_headsign'])[0];
-        if (tripAttr) {
-            console.log(tripAttr.trip_headsign, r.vid, r.delay)
-        } else {
+        if (!tripAttr) {
             console.warn("No trip attr for", r.tripId)
         }
         return validateVehiclePosition({
