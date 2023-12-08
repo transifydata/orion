@@ -37,7 +37,6 @@ export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindin
     }
 
 
-
     if (shouldProcessUpdate(config.id, 'getTripUpdates', (feed?.header?.timestamp as Long).toNumber())) {
         return feed.entity.map(item => {
             if (!item.tripUpdate) {
@@ -130,6 +129,9 @@ export interface VehiclePosition {
 export interface VehiclePositionOutput extends VehiclePosition {
     delay?: number;
     trip_headsign: string;
+    server_time: number;
+    source: string;
+    terminalDepartureTime: string;
 }
 
 
@@ -184,7 +186,7 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
         status: currentStatus,
         secsSinceReport: getSecsSinceReport(feedTimestamp, timestamp),
         stopId: undefined,
-        label: undefined
+        label: undefined,
     };
 
     if (stopId != '') {

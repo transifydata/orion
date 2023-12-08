@@ -155,6 +155,12 @@ export class UpdatingGtfsFeed {
         }
     }
 
+    getTerminalDepartureTime(trip_id: string): string {
+        // Returns the departure time of the last stop in a trip
+        const ret = getStoptimes({trip_id: trip_id}, ['departure_time'], [['stop_sequence', 'ASC']], {db: this.db});
+        return ret[0].departure_time;
+    }
+
     getShapesAsGeoJSON(query: Record<string, any>) {
         return getShapesAsGeoJSON(query, {db: this.db});
     }

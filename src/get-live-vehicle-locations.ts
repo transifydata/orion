@@ -8,7 +8,7 @@ import {openDb} from "./sinks/sqlite-sink";
 
 type TripUpdate = transit_realtime.TripUpdate
 
-export function validateVehiclePosition(vehiclePosition: any): VehiclePositionOutput {
+export function validateVehiclePosition(vehiclePosition: VehiclePositionOutput): VehiclePositionOutput {
     return {
         rid: vehiclePosition.rid,
         vid: vehiclePosition.vid,
@@ -23,6 +23,9 @@ export function validateVehiclePosition(vehiclePosition: any): VehiclePositionOu
         stopId: vehiclePosition.stopId,
         label: vehiclePosition.label,
         delay: vehiclePosition.delay,
+        server_time: vehiclePosition.server_time,
+        source: vehiclePosition.source,
+        terminalDepartureTime: vehiclePosition.terminalDepartureTime,
     };
 }
 
@@ -78,8 +81,6 @@ WITH latest_vehicle_positions AS
     })
 
     return rows.map(r => {
-        const routeAttr = getRouteByRouteId(feed, r.rid);
-
         const tripAttr = feed.getTrips({trip_id: r.tripId}, ['direction_id', 'trip_headsign'])[0];
         if (tripAttr) {
             console.log(tripAttr.trip_headsign, r.vid, r.delay)
@@ -88,8 +89,11 @@ WITH latest_vehicle_positions AS
         }
         return validateVehiclePosition({
             ...r,
+            source: "live",
             lat: parseFloat(r.lat),
-            lon: parseFloat(r.lon), ...routeAttr, ...tripAttr
+            lon: parseFloat(r.lon),
+            terminalDepartureTime: feed.getTerminalDepartureTime(r.tripId),
+            trip_headsign: tripAttr.trip_headsign,
         })
     });
 }

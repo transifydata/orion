@@ -95,16 +95,26 @@ function getDateAsString(date: Date): string {
     return `${year}${month}${day}`;
 }
 
+function getTimeOfDayForGtfs(time: Date): number {
+    // Returns the time of day in seconds
+    // Handles special case: GTFS feeds go past 24 hours, so we want to do the same for seconds conversion
+    let timeOfDaySecs = unixTimestampToSecondsOfDay(
+        time.getTime() / 1000,
+        "America/Toronto",
+    );
+
+    if (timeOfDaySecs <= 3 * 3600) {
+        timeOfDaySecs += 24 * 3600;
+    }
+
+    return timeOfDaySecs
+}
 function getClosestStopTimes(
     db: BetterSqlite3.Database,
     time: Date,
 ): ClosestStopTime[] {
-    const timeOfDaySecs = unixTimestampToSecondsOfDay(
-        time.getTime() / 1000,
-        "America/Toronto",
-    );
+    const timeOfDaySecs = getTimeOfDayForGtfs(time);
     const timeOfDay = secondsToHHMMSS(timeOfDaySecs);
-    console.log("Time of day", timeOfDay)
     const timeOfDayBefore = secondsToHHMMSS(timeOfDaySecs - 5 * 60);
     const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 5 * 60);
 
@@ -186,10 +196,7 @@ function processClosestStopTimes(
         }
     }
 
-    const timeOfDaySecs = unixTimestampToSecondsOfDay(
-        time.getTime() / 1000,
-        "America/Toronto",
-    );
+    const timeOfDaySecs = getTimeOfDayForGtfs(time);
 
     return stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
         const beforeStopLocation = feed.getStopLocation(beforeStopTime.stop_id);
@@ -235,7 +242,10 @@ function convertClosesStopTimeToVehiclePositions(
     const trip_headsign: string = db.getTrips({trip_id: st.trip_id}, [
         "trip_headsign",
     ])[0]["trip_headsign"];
-    const vid = "scheduled";
+
+    // When the user hovers over this bus, we preferentially show the live bus location by matching trip_ids
+    // If there's no live bus in the GTFS-realtime feed, we show this scheduled bus along with the message
+    const vid = "Could not find corresponding real-time bus";
 
     const heading = st.heading;
 
@@ -255,6 +265,9 @@ function convertClosesStopTimeToVehiclePositions(
         trip_headsign: trip_headsign,
         status: status,
         secsSinceReport: secsSinceReport,
+        server_time: Date.now(),
+        source: "scheduled",
+        terminalDepartureTime: db.getTerminalDepartureTime(st.trip_id),
     };
 }
 
