@@ -1,25 +1,9 @@
 import {Agency} from "../index.js";
-import type Long from "long";
 
 import request from 'request'
 import axios from 'axios'
 
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
-
-const lastTimeStampCache = {}
-
-function shouldProcessUpdate(agency: string, function_name: string, feed_timestamp: number): boolean {
-    // Whether to process an update depending on if the `feed_timestamp` (when the feed was created) has changed
-    // TEMP FIX: Process all updates since feedTimestamp is slightly buggy in the agency's implementation
-    return true
-    // const cacheKey = agency + function_name + feed_timestamp.toString();
-    // if (!lastTimeStampCache[cacheKey]) {
-    //     lastTimeStampCache[cacheKey] = true;
-    //     return true;
-    // } else {
-    //     return false;
-    // }
-}
 
 export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
     const url = config.tripUpdatesUrl;
@@ -38,16 +22,12 @@ export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindin
 
 
 
-    if (shouldProcessUpdate(config.id, 'getTripUpdates', (feed?.header?.timestamp as Long).toNumber())) {
-        return feed.entity.map(item => {
-            if (!item.tripUpdate) {
-                throw new Error("Unexpected FeedEntity in TripUpdates - " + JSON.stringify(item))
-            }
-            return new GtfsRealtimeBindings.transit_realtime.TripUpdate(item.tripUpdate);
-        })
-    } else {
-        return []
-    }
+    return feed.entity.map(item => {
+        if (!item.tripUpdate) {
+            throw new Error("Unexpected FeedEntity in TripUpdates - " + JSON.stringify(item))
+        }
+        return new GtfsRealtimeBindings.transit_realtime.TripUpdate(item.tripUpdate);
+    })
 
 
 }
@@ -86,23 +66,19 @@ export function getVehicles(config) {
                     return;
                 }
 
-                if (shouldProcessUpdate(config.id, 'getVehicles', (feed?.header?.timestamp as Long).toNumber())) {
-                    const vehicles: VehiclePosition[] = [];
-                    const feedTimestamp = Date.now();
-                    feed.entity.forEach(function (entity) {
-                        const gtfsVehiclePosition = entity.vehicle;
-                        if (isVehicle(gtfsVehiclePosition)) {
-                            vehicles.push(makeVehicle(
-                                gtfsVehiclePosition,
-                                feedTimestamp,
-                                config.gtfs_realtime_vehicle_id,
-                            ));
-                        }
-                    });
-                    resolve(vehicles);
-                } else {
-                    resolve([])
-                }
+                const vehicles: VehiclePosition[] = [];
+                const feedTimestamp = Date.now();
+                feed.entity.forEach(function (entity) {
+                    const gtfsVehiclePosition = entity.vehicle;
+                    if (isVehicle(gtfsVehiclePosition)) {
+                        vehicles.push(makeVehicle(
+                            gtfsVehiclePosition,
+                            feedTimestamp,
+                            config.gtfs_realtime_vehicle_id,
+                        ));
+                    }
+                });
+                resolve(vehicles);
             } else {
                 reject(new Error("HTTP " + response.statusCode + " fetching gtfs-realtime feed from " + url));
             }
@@ -157,10 +133,10 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
         if (feedTimestamp == null || timestamp == null) {
             return null;
         }
-        if (feedTimestamp != null && feedTimestamp > 2147483647) {
+        if (feedTimestamp > 2147483647) {
             feedTimestamp = Math.round(feedTimestamp / 1000);
         }
-        if (timestamp != null && timestamp > 2147483647) {
+        if (timestamp > 2147483647) {
             timestamp = Math.round(timestamp / 1000);
         }
         return Math.max(0, feedTimestamp - timestamp);
