@@ -1,14 +1,15 @@
 import moment from "moment-timezone";
-import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
+import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
 import BetterSqlite3 from "better-sqlite3";
-import {VehiclePositionOutput} from "./providers/gtfs-realtime";
+import { VehiclePositionOutput } from "./providers/gtfs-realtime";
 import assert from "assert";
+import { getScheduledVehicleLocationsSQL } from "./sql-vehicle-locations";
 
 export function HHMMSSToSeconds(time) {
-    // Split the time string into hours, minutes, and seconds
-    const [hours, minutes, seconds] = time.split(":");
+  // Split the time string into hours, minutes, and seconds
+  const [hours, minutes, seconds] = time.split(":");
 
-    return parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds);
+  return parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds);
 }
 
 export function secondsToHHMMSS(seconds) {
@@ -57,20 +58,6 @@ export function getClosestScheduledStopTime(
     return undefined;
 }
 
-function getDayOfWeekColumnName(date: Date): string {
-    const dayOfWeek = date.getDay();
-    const dayColumnNames = [
-        "sunday",
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
-    ];
-    return dayColumnNames[dayOfWeek];
-}
-
 export interface ClosestStopTime {
     trip_id: string;
     arrival_time: string;
@@ -85,16 +72,6 @@ export interface ClosestStopTime {
     source: "0before" | "1after";
 }
 
-function getDateAsString(date: Date): string {
-    // Returns a date in YYYYMMDD format
-
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, "0"); // Months are zero-based
-    const day = date.getDate().toString().padStart(2, "0");
-
-    return `${year}${month}${day}`;
-}
-
 function getTimeOfDayForGtfs(time: Date): number {
     // Returns the time of day in seconds
     // Handles special case: GTFS feeds go past 24 hours, so we want to do the same for seconds conversion
@@ -103,69 +80,23 @@ function getTimeOfDayForGtfs(time: Date): number {
         "America/Toronto",
     );
 
-    if (timeOfDaySecs <= 3 * 3600) {
+    // Some brampton buses run past midnight (latest 3:08 AM), so we set 3:15 AM as the cutoff for the next day
+    if (timeOfDaySecs <= 3.25 * 3600) {
         timeOfDaySecs += 24 * 3600;
     }
 
     return timeOfDaySecs
 }
+
 function getClosestStopTimes(
     db: BetterSqlite3.Database,
     time: Date,
 ): ClosestStopTime[] {
-    const timeOfDaySecs = getTimeOfDayForGtfs(time);
-    const timeOfDay = secondsToHHMMSS(timeOfDaySecs);
-    const timeOfDayBefore = secondsToHHMMSS(timeOfDaySecs - 5 * 60);
-    const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 5 * 60);
-
-    const query = `
-WITH eligible_trips AS (
-  SELECT DISTINCT t.trip_id
-  FROM trips t
-    INNER JOIN calendar c ON t.service_id = c.service_id
-  WHERE c.${getDayOfWeekColumnName(
-        time,
-    )} = 1 AND c.start_date <= @date AND c.end_date >= @date
-),
-after_stops AS (
-  SELECT ROWID, trip_id, MIN(arrival_time) AS first_stop_after_1_30PM
-  FROM stop_times
-  WHERE arrival_time >= @timeOfDay
-    AND arrival_time < @timeOfDayAfter
-    AND trip_id IN (SELECT trip_id FROM eligible_trips)
-  GROUP BY trip_id
-),
-before_stops AS (
-  SELECT ROWID, trip_id, MIN(arrival_time) AS first_stop_before_1_30PM
-  FROM stop_times
-  WHERE arrival_time <= @timeOfDay
-    AND arrival_time > @timeOfDayBefore
-    AND trip_id IN (SELECT trip_id FROM eligible_trips)
-  GROUP BY trip_id
-)
-
-SELECT stop_times.*, '1after' as source
-FROM stop_times
-INNER JOIN after_stops ON stop_times.ROWID = after_stops.ROWID
-
-UNION
-
-SELECT stop_times.*, '0before' as source
-FROM stop_times
-INNER JOIN before_stops ON stop_times.ROWID = before_stops.ROWID
-
-ORDER BY trip_id, source;
-  `;
-
-    const statement = db.prepare(query);
-
-    // @ts-ignore
-    return statement.all({
-        date: getDateAsString(time), // YYYYMMDD format (e.g. "20231001")
-        timeOfDay: timeOfDay,
-        timeOfDayBefore: timeOfDayBefore,
-        timeOfDayAfter: timeOfDayAfter,
-    });
+  const timeOfDaySecs = getTimeOfDayForGtfs(time);
+  const timeOfDay = secondsToHHMMSS(timeOfDaySecs);
+  const timeOfDayBefore = secondsToHHMMSS(timeOfDaySecs - 5 * 60);
+  const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 5 * 60);
+  return getScheduledVehicleLocationsSQL(time, db, timeOfDay, timeOfDayBefore, timeOfDayAfter);
 }
 
 export interface StopTimesWithLocation extends ClosestStopTime {
@@ -203,6 +134,7 @@ function processClosestStopTimes(
         const afterStopLocation = feed.getStopLocation(afterStopTime.stop_id);
 
         // Interpolate the current location based on time
+        // TODO: interpolate along the route's polyline
         const timeDiff =
             HHMMSSToSeconds(afterStopTime.arrival_time) -
             HHMMSSToSeconds(beforeStopTime.arrival_time);
@@ -232,7 +164,7 @@ function processClosestStopTimes(
     });
 }
 
-function convertClosesStopTimeToVehiclePositions(
+function convertClosestStopTimeToVehiclePositions(
     db: UpdatingGtfsFeed,
     st: StopTimesWithLocation,
 ): VehiclePositionOutput {
@@ -292,7 +224,7 @@ export async function getScheduledVehicleLocations(
     );
 
     const positions = stopTimesWithLocation.map((st) =>
-        convertClosesStopTimeToVehiclePositions(feed, st),
+        convertClosestStopTimeToVehiclePositions(feed, st),
     );
 
     // Assert that trip_id is unique
