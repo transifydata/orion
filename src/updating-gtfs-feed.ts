@@ -88,7 +88,7 @@ export class UpdatingGtfsFeed {
     static AGENCY_MAP: Record<string, UpdatingGtfsFeed> = {};
 
     agency: string;
-    db: Database | undefined;
+    db: Database;
 
     private constructor(agency, db) {
         this.agency = agency;
@@ -143,9 +143,12 @@ export class UpdatingGtfsFeed {
         await waitForLock(this.db);
         console.log("Lock successful!", this.agency);
         await downloadFromGtfsService(this.agency);
-        closeDb(this.db);
 
+        closeDb(this.db);
         this.db = openDb(config, this.agency);
+
+        // Speed up getTerminalDepartureTime
+        this.db.exec("create index if not exists idx_stop_times_trip_id on stop_times (trip_id, stop_sequence);")
     }
 
     static async updateAll() {
@@ -157,8 +160,10 @@ export class UpdatingGtfsFeed {
 
     getTerminalDepartureTime(trip_id: string): string {
         // Returns the departure time of the last stop in a trip
-        const ret = getStoptimes({trip_id: trip_id}, ['departure_time'], [['stop_sequence', 'ASC']], {db: this.db});
-        return ret[0].departure_time;
+        const statement = this.db.prepare("SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY stop_sequence ASC LIMIT 1");
+        const row = statement.get({trip_id: trip_id});
+        // @ts-ignore
+        return row.departure_time;
     }
 
     getShapesAsGeoJSON(query: Record<string, any>) {

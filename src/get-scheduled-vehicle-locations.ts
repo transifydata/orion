@@ -168,12 +168,7 @@ function convertClosestStopTimeToVehiclePositions(
     db: UpdatingGtfsFeed,
     st: StopTimesWithLocation,
 ): VehiclePositionOutput {
-    const routeid: string = db.getTrips({trip_id: st.trip_id}, ["route_id"])[0][
-        "route_id"
-        ];
-    const trip_headsign: string = db.getTrips({trip_id: st.trip_id}, [
-        "trip_headsign",
-    ])[0]["trip_headsign"];
+    const {route_id: routeid, trip_headsign} = db.getTrips({trip_id: st.trip_id}, ["route_id", "trip_headsign"])[0];
 
     // When the user hovers over this bus, we preferentially show the live bus location by matching trip_ids
     // If there's no live bus in the GTFS-realtime feed, we show this scheduled bus along with the message
@@ -223,8 +218,9 @@ export async function getScheduledVehicleLocations(
         new Date(time),
     );
 
-    const positions = stopTimesWithLocation.map((st) =>
-        convertClosestStopTimeToVehiclePositions(feed, st),
+    const positions = stopTimesWithLocation.map((st) => {
+            return convertClosestStopTimeToVehiclePositions(feed, st)
+        }
     );
 
     // Assert that trip_id is unique

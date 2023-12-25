@@ -10,7 +10,6 @@ import {
 } from "./gtfs-parser";
 import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
 import { getLiveVehicleLocations } from "./get-live-vehicle-locations";
-import {getScheduledVehicleLocations} from "./get-scheduled-vehicle-locations";
 import getVehicleLocations from "./get-vehicle-locations";
 
 const app = express();
