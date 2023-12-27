@@ -23,6 +23,7 @@ async function openDb() {
 
 export async function migrateDbs() {
     const db = await openDb();
+    console.log("Migrating...")
     await db.migrate()
     await db.run( 'PRAGMA journal_mode = WAL;' );
     await pruneDb(db, Date.now());
