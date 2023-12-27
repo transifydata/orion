@@ -25,6 +25,7 @@ export async function openDb() {
 export async function migrateDbs() {
   console.log("Starting migrations...");
   const db = await openDb();
+  console.log("Migrating...")
   await db.migrate();
 
   await db.run("PRAGMA journal_mode = WAL;");
@@ -186,8 +187,6 @@ export async function writeTripUpdatesToSink(
 }
 
 async function pruneDb(db, currentTime: number) {
-  // TODO: delete
-  return;
   if (currentTime - lastPruned > 10 * 3600 * 1000) {
     console.log("Pruning...");
     lastPruned = currentTime;
