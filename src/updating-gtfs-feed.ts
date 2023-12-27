@@ -97,7 +97,11 @@ export class UpdatingGtfsFeed {
 
     static async initializeAll() {
         for (const agency of ["brampton", "barrie", "go_transit"]) {
-            UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
+            try {
+                UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
+            } catch (err) {
+                console.error("Could not open", agency, err)
+            }
         }
     }
 

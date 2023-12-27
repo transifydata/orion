@@ -222,6 +222,7 @@ export async function writeTripUpdatesToSink(feed: UpdatingGtfsFeed, agency: Age
 
 async function pruneDb(db, currentTime: number) {
     if (currentTime - lastPruned > 10 * 3600 * 1000) {
+        console.log("Pruning...")
         lastPruned = currentTime;
         // Prune all records older than 50 days ago
         const prunePast = currentTime - 50 * 24 * 3600 * 1000;
