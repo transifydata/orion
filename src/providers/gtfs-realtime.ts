@@ -103,6 +103,16 @@ export interface VehiclePosition {
     label?: Value;
 }
 
+export interface VehiclePositionOutput extends VehiclePosition {
+    delay?: number;
+    trip_headsign: string;
+    server_time: number;
+    source: string;
+    terminalDepartureTime: string;
+}
+
+
+
 function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): VehiclePosition {
     // GTFS-Realtime API returns vehicles like this:
     // VehiclePosition {
@@ -153,7 +163,7 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
         status: currentStatus,
         secsSinceReport: getSecsSinceReport(feedTimestamp, timestamp),
         stopId: undefined,
-        label: undefined
+        label: undefined,
     };
 
     if (stopId != '') {

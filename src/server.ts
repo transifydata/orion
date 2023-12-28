@@ -1,11 +1,16 @@
 import express from "express";
 import morgan from "morgan";
 
-import * as sql from "./sinks/sqlite-sink.js";
+import { migrateDbs } from "./sinks/sqlite-sink.js";
 import cors from "cors";
-import { getAllRoutesWithShapes, resetGtfs, Route } from "./gtfs-parser";
+import {
+  getAllRoutesWithShapes,
+  resetGtfs,
+  Route,
+} from "./gtfs-parser";
 import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
-import {migrateDbs} from "./sinks/sqlite-sink.js";
+import { getLiveVehicleLocations } from "./get-live-vehicle-locations";
+import getVehicleLocations from "./get-vehicle-locations";
 
 const app = express();
 
@@ -31,12 +36,18 @@ app.get('/routes/:agency', async (req, res) => {
 
 app.get('/positions/:agency', async (req, res) => {
     const agency = req.params.agency;
-    let time: number | undefined = undefined; // Default to null if "time" parameter is not provided
+    let time = Date.now();
 
     if (req.query.time && typeof req.query.time === 'string') {
         time = parseInt(req.query.time); // Parse the "time" parameter as an integer
     }
-    res.json(await sql.getVehicleLocations(agency, time))
+
+    if (req.query.live === 'true') {
+        res.json(await getVehicleLocations(agency, time))
+        return;
+    } else {
+        res.json(await getLiveVehicleLocations(agency, time))
+    }
 });
 
 app.get('/', async (req, res) => {

@@ -88,7 +88,7 @@ export class UpdatingGtfsFeed {
     static AGENCY_MAP: Record<string, UpdatingGtfsFeed> = {};
 
     agency: string;
-    db: Database | undefined;
+    db: Database;
 
     private constructor(agency, db) {
         this.agency = agency;
@@ -97,12 +97,17 @@ export class UpdatingGtfsFeed {
 
     static async initializeAll() {
         for (const agency of ["brampton", "barrie", "go_transit"]) {
-            UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
+            try {
+                UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
+            } catch (err) {
+                console.error("Could not open", agency, err)
+            }
         }
     }
 
     static async openWait(agency: string): Promise<UpdatingGtfsFeed> {
         // If file doesn't exist, then download it
+        console.log("Opening ", agency, "...")
         if (!fs.existsSync(getFilepath(agency))) {
             console.log("Downloading GTFS...", agency)
             await downloadFromGtfsService(agency);
@@ -142,9 +147,12 @@ export class UpdatingGtfsFeed {
         await waitForLock(this.db);
         console.log("Lock successful!", this.agency);
         await downloadFromGtfsService(this.agency);
-        closeDb(this.db);
 
+        closeDb(this.db);
         this.db = openDb(config, this.agency);
+
+        // Speed up getTerminalDepartureTime
+        this.db.exec("create index if not exists idx_stop_times_trip_id on stop_times (trip_id, stop_sequence);")
     }
 
     static async updateAll() {
@@ -152,6 +160,14 @@ export class UpdatingGtfsFeed {
         for (const agency in UpdatingGtfsFeed.AGENCY_MAP) {
             await UpdatingGtfsFeed.AGENCY_MAP[agency].update();
         }
+    }
+
+    getTerminalDepartureTime(trip_id: string): string {
+        // Returns the departure time of the last stop in a trip
+        const statement = this.db.prepare("SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY stop_sequence ASC LIMIT 1");
+        const row = statement.get({trip_id: trip_id});
+        // @ts-ignore
+        return row.departure_time;
     }
 
     getShapesAsGeoJSON(query: Record<string, any>) {
@@ -166,6 +182,11 @@ export class UpdatingGtfsFeed {
         return getStops(query, fields, undefined, {db: this.db})
     }
 
+    getStopLocation(stop_id: string): [number, number] {
+        // Returns a tuple of lat, lon coordinates for a stop_id
+        const ret = this.getStops({stop_id: stop_id}, ['stop_lat', 'stop_lon'])[0];
+        return [parseFloat(ret.stop_lat),parseFloat(ret.stop_lon)];
+    }
     getStoptimes(query: Record<string, any>, fields: Array<string>) {
         return getStoptimes(query, fields, undefined, {db: this.db})
     }

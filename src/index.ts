@@ -5,7 +5,6 @@ import {config} from "./config";
 import {resetGtfsIfNeeded} from "./reset-gtfs";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {writeToS3} from "./sinks/s3Helper";
-import {resetGtfs} from "./gtfs-parser";
 
 const interval = 8000; // ms
 
