@@ -64,7 +64,7 @@ async function saveVehicles() {
     const promises = agenciesInfo.map(async (agencyInfo) => {
         try {
           console.log("Working on", agencyInfo.id);
-          const db = await UpdatingGtfsFeed.getFeed(agencyInfo.id);
+          const db = await UpdatingGtfsFeed.getFeed(agencyInfo.id, Date.now());
           const providerCode = providers[agencyInfo.provider];
 
           if (!providerCode) throw new Error("Invalid provider name");

@@ -10,10 +10,10 @@ import {
 } from "gtfs";
 import axios from "axios";
 import { Database } from "better-sqlite3";
-import {getCurrentFormattedDate} from "./transify-api-connector";
+import {formatDate, getCurrentFormattedDate} from "./transify-api-connector";
 
 const config = {
-  sqlitePath: undefined as string | undefined,
+  sqlitePath: undefined,
   agencies: [
     {
       url: "https://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip",
@@ -32,32 +32,32 @@ const config = {
   ],
 };
 
-function openDb(config, agency) {
-    config.sqlitePath = getFilepath(agency);
+function openDb(config, agency: string, time: number) {
+    config.sqlitePath = getFilepath(agency, time);
     return openDb_internal(config);
 }
 
-function getFilepath(agency): string {
-    return `gtfs-${agency}.db`;
+function getFilepath(agency: string, time: number): string {
+    const formatted_date = formatDate(new Date(time));
+    return `${agency}-${formatted_date}.db`;
 }
 
 
 
-async function downloadFromGtfsService(agency: string) {
+async function downloadFromGtfsService(agency: string, time: number) {
     const response = await axios({
         method: 'get',
-        url: `https://staging-api.transify.ca/api/gtfs/db?agency=${agency}&date=${getCurrentFormattedDate()}`,
+        url: `https://staging-api.transify.ca/api/gtfs/db?agency=${agency}&date=${formatDate(new Date(time))}`,
         responseType: 'stream', // Important to handle the response as a stream
     });
 
     if (response.status !== 200) {
         throw new Error("Could not download GTFS" + response.status + response.statusText)
     }
-    const writer = fs.createWriteStream(getFilepath(agency));
+    const writer = fs.createWriteStream(getFilepath(agency, time));
     response.data.pipe(writer);
 
     // Handle the completion of the download
-
 
     console.log("Waiting for GTFS download...")
     await new Promise(resolve => {
@@ -83,43 +83,80 @@ async function waitForLock(db) {
     throw new Error("Could not get lock")
 }
 
-export class UpdatingGtfsFeed {
+export class GtfsList {
+    private inner: Array<UpdatingGtfsFeed> = [];
 
-    static AGENCY_MAP: Record<string, UpdatingGtfsFeed> = {};
+    constructor() {}
 
-    agency: string;
-    db: Database;
-
-    private constructor(agency, db) {
-        this.agency = agency;
-        this.db = db;
-    }
-
-    static async initializeAll() {
-        for (const agency of ["brampton", "barrie", "go_transit"]) {
-            try {
-                UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
-            } catch (err) {
-                console.error("Could not open", agency, err)
-            }
+    public find(agency: string, time: number): UpdatingGtfsFeed | undefined {
+        const date = formatDate(new Date(time));
+        const index = this.inner.findIndex((feed) => feed.agency === agency && feed.formatted_date === date);
+        if (index === -1) {
+            return undefined
+        } else {
+            return this.inner[index];
         }
     }
 
-    static async openWait(agency: string): Promise<UpdatingGtfsFeed> {
+    public push(feed: UpdatingGtfsFeed) {
+        this.inner.push(feed);
+    }
+}
+
+export class UpdatingGtfsFeed {
+
+    private static AGENCY_MAP: GtfsList = new GtfsList();
+
+    agency: string;
+    formatted_date: string;
+    db: Database;
+
+    private constructor(agency: string, db: Database, time: number) {
+        this.agency = agency;
+        this.db = db;
+        this.formatted_date = formatDate(new Date(time));
+    }
+
+    static async initializeAll() {
+        // TODO: remove
+        // for (const agency of ["brampton", "barrie", "go_transit"]) {
+        //     try {
+        //         UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
+        //     } catch (err) {
+        //         console.error("Could not open", agency, err)
+        //     }
+        // }
+    }
+
+
+    static async openWait(agency: string, time: number): Promise<UpdatingGtfsFeed> {
         // If file doesn't exist, then download it
-        console.log("Opening ", agency, "...")
-        if (!fs.existsSync(getFilepath(agency))) {
+        const filepath = getFilepath(agency, time);
+        console.log("Opening ", agency, filepath, "...")
+
+        const existsButEmpty = fs.existsSync(filepath) && fs.statSync(filepath).size === 0;
+        const doesntExist = !fs.existsSync(filepath);
+        if (existsButEmpty || doesntExist) {
             console.log("Downloading GTFS...", agency)
-            await downloadFromGtfsService(agency);
+            try {
+                await downloadFromGtfsService(agency, time);
+            } catch (err) {
+                console.error("Could not download GTFS", agency, err)
+                throw err;
+            }
         }
         let max_iters = 0;
         while (max_iters <= 5) {
             max_iters += 1;
             try {
-                const db = openDb(config, agency);
+                const db = openDb(config, agency, time);
                 console.log("Successfully opened", agency)
 
-                return new UpdatingGtfsFeed(agency, db);
+                // The index should already have been created on all new GTFS by transify-api,
+                // but for old GTFS files, we need to create this index to speed up querying vehicle positions
+                db.exec("create index if not exists idx_stop_times_trip_id on stop_times (trip_id, stop_sequence);")
+
+                return new UpdatingGtfsFeed(agency, db, time);
             } catch (err: any) {
                 if (err?.code === 'SQLITE_BUSY') {
                     console.log("Locked waiting for db...", agency)
@@ -133,29 +170,33 @@ export class UpdatingGtfsFeed {
     }
 
 
-    static async getFeed(agency: string): Promise<UpdatingGtfsFeed> {
-        if (UpdatingGtfsFeed.AGENCY_MAP[agency] === undefined) {
-            UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
-            await UpdatingGtfsFeed.AGENCY_MAP[agency].update();
+    static async getFeed(agency: string, time: number): Promise<UpdatingGtfsFeed> {
+        const found = UpdatingGtfsFeed.AGENCY_MAP.find(agency, time);
+
+        console.log("Returning feed for", agency, found?.formatted_date)
+        if (found === undefined) {
+            const newFeed = await UpdatingGtfsFeed.openWait(agency, time);
+            UpdatingGtfsFeed.AGENCY_MAP.push(newFeed);
+            return newFeed;
+        } else {
+            return found;
         }
-        console.log("Returning feed for", agency)
-        return UpdatingGtfsFeed.AGENCY_MAP[agency];
     }
 
     async update() {
-        console.log("Locking database...", this.agency)
-        await waitForLock(this.db);
-        console.log("Lock successful!", this.agency);
-        await downloadFromGtfsService(this.agency);
-
-        closeDb(this.db);
-        this.db = openDb(config, this.agency);
-
-        // Speed up getTerminalDepartureTime
-        this.db.exec("create index if not exists idx_stop_times_trip_id on stop_times (trip_id, stop_sequence);")
+        // TODO: remove
+        return
+        // console.log("Locking database...", this.agency)
+        // await waitForLock(this.db);
+        // console.log("Lock successful!", this.agency);
+        // await downloadFromGtfsService(this.agency);
+        //
+        // closeDb(this.db);
+        // this.db = openDb(config, this.agency);
     }
 
     static async updateAll() {
+        // TODO: remove
         console.log("Resetting", UpdatingGtfsFeed.AGENCY_MAP)
         for (const agency in UpdatingGtfsFeed.AGENCY_MAP) {
             await UpdatingGtfsFeed.AGENCY_MAP[agency].update();
@@ -198,6 +239,5 @@ export class UpdatingGtfsFeed {
     close() {
         closeDb(this.db);
     }
-
 }
 

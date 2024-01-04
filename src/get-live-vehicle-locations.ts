@@ -44,7 +44,7 @@ function getRouteByRouteId(feed: UpdatingGtfsFeed, routeId: string) {
 }
 
 export async function getLiveVehicleLocations(agency: string, time: number): Promise<VehiclePositionOutput[]> {
-    const feed = await UpdatingGtfsFeed.getFeed(agency);
+    const feed = await UpdatingGtfsFeed.getFeed(agency, time);
     const db = await openDb();
 
 
