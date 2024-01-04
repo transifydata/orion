@@ -194,7 +194,6 @@ function convertClosestStopTimeToVehiclePositions(
         secsSinceReport: secsSinceReport,
         server_time: Date.now(),
         source: "scheduled",
-        // terminalDepartureTime: "0"
         terminalDepartureTime: db.getTerminalDepartureTime(st.trip_id),
     };
 }
