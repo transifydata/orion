@@ -39,7 +39,7 @@ function openDb(config, agency: string, time: number) {
 
 function getFilepath(agency: string, time: number): string {
     const formatted_date = formatDate(new Date(time));
-    return `${agency}-${formatted_date}.db`;
+    return `gtfs-${agency}-${formatted_date}.db`;
 }
 
 
