@@ -20,11 +20,6 @@ export interface Route {
   stops: FeatureCollection<Geometry, Stop>;
 }
 
-export async function resetGtfs() {
-  console.log("Resetting GTFS...");
-  await UpdatingGtfsFeed.updateAll();
-}
-
 export async function getAllRoutesWithShapes(agency: string): Promise<Route[]> {
   const routes1 = await downloadRoutesFromTransifyApi(agency);
 

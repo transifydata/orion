@@ -10,7 +10,7 @@ import {
 } from "gtfs";
 import axios from "axios";
 import { Database } from "better-sqlite3";
-import {formatDate, getCurrentFormattedDate} from "./transify-api-connector";
+import {formatDate,} from "./transify-api-connector";
 
 const config = {
   sqlitePath: undefined,
@@ -117,18 +117,6 @@ export class UpdatingGtfsFeed {
         this.formatted_date = formatDate(new Date(time));
     }
 
-    static async initializeAll() {
-        // TODO: remove
-        // for (const agency of ["brampton", "barrie", "go_transit"]) {
-        //     try {
-        //         UpdatingGtfsFeed.AGENCY_MAP[agency] = await UpdatingGtfsFeed.openWait(agency);
-        //     } catch (err) {
-        //         console.error("Could not open", agency, err)
-        //     }
-        // }
-    }
-
-
     static async openWait(agency: string, time: number): Promise<UpdatingGtfsFeed> {
         // If file doesn't exist, then download it
         const filepath = getFilepath(agency, time);
@@ -180,26 +168,6 @@ export class UpdatingGtfsFeed {
             return newFeed;
         } else {
             return found;
-        }
-    }
-
-    async update() {
-        // TODO: remove
-        return
-        // console.log("Locking database...", this.agency)
-        // await waitForLock(this.db);
-        // console.log("Lock successful!", this.agency);
-        // await downloadFromGtfsService(this.agency);
-        //
-        // closeDb(this.db);
-        // this.db = openDb(config, this.agency);
-    }
-
-    static async updateAll() {
-        // TODO: remove
-        console.log("Resetting", UpdatingGtfsFeed.AGENCY_MAP)
-        for (const agency in UpdatingGtfsFeed.AGENCY_MAP) {
-            await UpdatingGtfsFeed.AGENCY_MAP[agency].update();
         }
     }
 
