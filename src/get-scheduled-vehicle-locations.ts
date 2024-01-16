@@ -88,6 +88,10 @@ function getTimeOfDayForGtfs(time: Date): number {
     return timeOfDaySecs
 }
 
+function isNumber(x: any): boolean {
+    return x !== null && x !== undefined
+}
+
 function getClosestStopTimes(
     db: BetterSqlite3.Database,
     time: Date,
@@ -209,7 +213,7 @@ function processClosestStopTimes(
     const result = stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
         let result: {currentLocation: [number, number], heading: number};
 
-        if(Number.isInteger(beforeStopTime.shape_dist_traveled) && Number.isInteger(afterStopTime.shape_dist_traveled)) {
+        if(isNumber(beforeStopTime.shape_dist_traveled) && isNumber(afterStopTime.shape_dist_traveled)) {
             shapeInterpCount += 1;
             result = interpolateLocationAlongShape(beforeStopTime, afterStopTime)
         } else {
