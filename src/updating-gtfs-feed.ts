@@ -48,7 +48,7 @@ async function downloadFromGtfsService(agency, time) {
       process.stdout.clearLine(0);
       process.stdout.cursorTo(0);
       process.stdout.write(
-        `Downloading... ${percentCompleted}% ${progressEvent.loaded} / ${progressEvent.total}`,
+        `Download Progress ${agency} ${percentCompleted}% ${progressEvent.loaded} / ${progressEvent.total}`,
       );
     },
   });
@@ -145,7 +145,10 @@ export class UpdatingGtfsFeed {
     const existsButEmpty =
       fs.existsSync(filepath) && fs.statSync(filepath).size === 0;
     const doesntExist = !fs.existsSync(filepath);
+
+    let downloaded = false;
     if (existsButEmpty || doesntExist) {
+      downloaded = true;
       console.log("Downloading GTFS...", agency);
       try {
         await downloadFromGtfsService(agency, time);
@@ -159,7 +162,10 @@ export class UpdatingGtfsFeed {
       max_iters += 1;
       try {
         const db = openDb(config, agency, time);
-        this.fix_gtfs_files(db);
+
+        if (downloaded) {
+          this.fix_gtfs_files(db);
+        }
         console.log("Successfully opened", agency);
 
         return new UpdatingGtfsFeed(agency, db, time);
@@ -185,6 +191,14 @@ export class UpdatingGtfsFeed {
       "create index if not exists idx_stop_times_trip_id on stop_times (trip_id, stop_sequence);",
     );
 
+    db.exec(
+        "create index if not exists idx_stop_times_trip_id_arrival_time on stop_times (trip_id, arrival_time);"
+    )
+
+    db.exec(
+        "create index if not exists idx_trips_trip_id on trips (trip_id);",
+    );
+
     // Some GO-Transit GTFS files don't have a calendar.txt file, so fix it here
     db.exec(`create table if not exists calendar
                     (
@@ -200,6 +214,7 @@ export class UpdatingGtfsFeed {
                         end_date   TEXT
                     );
                 `);
+
   }
 
   static async getFeed(
@@ -208,7 +223,7 @@ export class UpdatingGtfsFeed {
   ): Promise<UpdatingGtfsFeed> {
     const found = UpdatingGtfsFeed.AGENCY_MAP.find(agency, time);
 
-    console.log("Returning feed for", agency, found?.formatted_date);
+    console.log("Returning feed for", agency, "found?: ", found?.formatted_date);
     if (found === undefined) {
       const newFeed = await UpdatingGtfsFeed.openWait(agency, time);
       UpdatingGtfsFeed.AGENCY_MAP.push(newFeed);
@@ -221,10 +236,11 @@ export class UpdatingGtfsFeed {
   getTerminalDepartureTime(trip_id: string): string {
     // Returns the departure time of the last stop in a trip
     const statement = this.db.prepare(
-      "SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY stop_sequence ASC LIMIT 1",);
-        const row = statement.get({trip_id: trip_id});
-        // @ts-ignore
-        return row.departure_time;
+      "SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY stop_sequence ASC LIMIT 1");
+
+    const row = statement.get({trip_id: trip_id});
+    // @ts-ignore
+    return row.departure_time;
     }
     getShapesAsGeoJSON(query: Record<string, any>) {
         return getShapesAsGeoJSON(query, {db: this.db});
@@ -275,6 +291,14 @@ export class UpdatingGtfsFeed {
 
   getTrips(query: Record<string, any>, fields: Array<string>) {
     return getTrips(query, fields, undefined, { db: this.db });
+  }
+
+  getTrip(trip_id: string, fields: Array<string>): object {
+    const fieldsString = fields.join(", ");
+    const query = this.db.prepare(`SELECT ${fieldsString} FROM trips WHERE trip_id = @trip_id`)
+    const result = query.get({trip_id: trip_id})
+    console.log("get trip result", result)
+    return result as object
   }
 
   close() {
