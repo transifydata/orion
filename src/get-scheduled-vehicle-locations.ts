@@ -129,13 +129,48 @@ function processClosestStopTimes(
 
     const timeOfDaySecs = getTimeOfDayForGtfs(time);
 
-    return stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
+    function interpolateLocationSimpleLinear(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime) {
+        const beforeStopLocation = feed.getStopLocation(beforeStopTime.stop_id);
+        const afterStopLocation = feed.getStopLocation(afterStopTime.stop_id);
+
+        // Interpolate the current location based on time
+        const timeDiff =
+            HHMMSSToSeconds(afterStopTime.arrival_time) -
+            HHMMSSToSeconds(beforeStopTime.arrival_time);
+        const currentTimeDiff =
+            timeOfDaySecs - HHMMSSToSeconds(beforeStopTime.arrival_time);
+        const interpolationFactor = currentTimeDiff / timeDiff;
+
+        const currentLocation: [number, number] = [
+            beforeStopLocation[0] +
+            interpolationFactor * (afterStopLocation[0] - beforeStopLocation[0]),
+            beforeStopLocation[1] +
+            interpolationFactor * (afterStopLocation[1] - beforeStopLocation[1]),
+        ];
+
+        // Calculate the direction (heading) in degrees
+        const direction =
+            Math.atan2(
+                afterStopLocation[1] - beforeStopLocation[1],
+                afterStopLocation[0] - beforeStopLocation[0],
+            ) *
+            (180 / Math.PI);
+
+        // Ensure the direction is within the range [0, 360)
+        const normalizedDirection = (direction + 360) % 360;
+
+        return {
+            currentLocation, heading: normalizedDirection
+        }
+    }
+
+    function interpolateLocationAlongShape(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime){
         const shape = feed.getShapeByTripID(beforeStopTime.trip_id)
 
         const beforeShapeDistTravelled = beforeStopTime.shape_dist_traveled
         const afterShapeDistTravelled = afterStopTime.shape_dist_traveled
 
-        assert(beforeShapeDistTravelled && afterShapeDistTravelled)
+        assert(beforeShapeDistTravelled && afterShapeDistTravelled, "Shape dist travelled fields not present!")
 
         // Interpolate the current location based on time
         const timeDiff =
@@ -149,20 +184,38 @@ function processClosestStopTimes(
         const currentLocation = shape.interpolate(currentShapeDistTravelled)
 
         // Calculate the position a bit into the future to figure out the angle of the bus
-        const deltaPosition = shape.interpolate(currentShapeDistTravelled + 0.01)
+        let direction = 0;
 
-        // Calculate the direction (heading) in degrees
-        const direction =
-            Math.atan2(
-                deltaPosition[1] - currentLocation[1],
-                deltaPosition[0] - currentLocation[0],
-            ) *
-            (180 / Math.PI);
+        if (currentShapeDistTravelled + 0.01 < 1.0) {
+            // Only calculate the direction if we're not at the end of the shape
+            const deltaPosition = shape.interpolate(currentShapeDistTravelled + 0.01)
+
+            // Calculate the direction (heading) in degrees
+            direction =
+                Math.atan2(
+                    deltaPosition[1] - currentLocation[1],
+                    deltaPosition[0] - currentLocation[0],
+                ) *
+                (180 / Math.PI);
+        }
 
         // Ensure the direction is within the range [0, 360)
         const normalizedDirection = (direction + 360) % 360;
 
-        return {...beforeStopTime, currentLocation, heading: normalizedDirection};
+        return {currentLocation, heading: normalizedDirection};
+    }
+
+    return stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
+        let result: {currentLocation: [number, number], heading: number};
+
+        if(beforeStopTime.shape_dist_traveled && afterStopTime.shape_dist_traveled && false) {
+            // console.log("Using shape interpolation strategy for buses!")
+            result = interpolateLocationAlongShape(beforeStopTime, afterStopTime)
+        } else {
+            // console.log("Using simple linear interpolation strategy for buses!")
+            result = interpolateLocationSimpleLinear(beforeStopTime, afterStopTime)
+        }
+        return {...beforeStopTime, ...result}
     });
 }
 
@@ -171,6 +224,7 @@ function convertClosestStopTimeToVehiclePositions(
     st: StopTimesWithLocation,
 ): VehiclePositionOutput {
     const {route_id: routeid, trip_headsign} = db.getTrips({trip_id: st.trip_id}, ["route_id", "trip_headsign"])[0];
+    // const {route_id: routeid, trip_headsign} = db.getTrip(st.trip_id, ["route_id", "trip_headsign"]);
 
     // When the user hovers over this bus, we preferentially show the live bus location by matching trip_ids
     // If there's no live bus in the GTFS-realtime feed, we show this scheduled bus along with the message
@@ -206,9 +260,7 @@ export async function getScheduledVehicleLocations(
 ): Promise<VehiclePositionOutput[]> {
     // Use the scheduled GTFS feed to get the positions of all vehicles at a given time.
     // You don't need to fill out VID, status, secsSinceReport, stopId, or label.
-
     const feed = await UpdatingGtfsFeed.getFeed(agency, time);
-
     const gtfsDatabase = feed.db;
 
     assert(gtfsDatabase)
