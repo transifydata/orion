@@ -15,7 +15,7 @@ export class Shape {
   }
 
   interpolate(ratio: number): [number, number] {
-    assert(ratio >= 0.0 && ratio <= 1.0);
+    assert(ratio >= 0.0 && ratio <= 1.0, `ratio must be between 0 and 1, got ${ratio}`);
 
     const interp_distance = this.length * ratio;
 
