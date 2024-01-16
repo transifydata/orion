@@ -5,10 +5,8 @@ import { migrateDbs } from "./sinks/sqlite-sink.js";
 import cors from "cors";
 import {
   getAllRoutesWithShapes,
-  resetGtfs,
   Route,
 } from "./gtfs-parser";
-import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
 import { getLiveVehicleLocations } from "./get-live-vehicle-locations";
 import getVehicleLocations from "./get-vehicle-locations";
 
@@ -16,7 +14,6 @@ const app = express();
 
 app.use(cors())
 
-await UpdatingGtfsFeed.initializeAll();
 await migrateDbs();
 
 let ROUTES_CACHE: Record<string, Route[]> = {};
@@ -66,7 +63,6 @@ app.get('/', async (req, res) => {
 })
 
 app.get('/reset', async (req, res) => {
-    await resetGtfs();
     res.sendStatus(204);
 })
 

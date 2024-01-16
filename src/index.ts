@@ -2,7 +2,6 @@ import {migrateDbs, writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-si
 import * as NextBus from './providers/nextbus'
 import * as Realtime from './providers/gtfs-realtime'
 import {config} from "./config";
-import {resetGtfsIfNeeded} from "./reset-gtfs";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {writeToS3} from "./sinks/s3Helper";
 
@@ -59,8 +58,6 @@ var agenciesInfo = config.agencies.map((agencyConfig) => {
 
 
 async function saveVehicles() {
-    await resetGtfsIfNeeded();
-
     const promises = agenciesInfo.map(async (agencyInfo) => {
         try {
           console.log("Working on", agencyInfo.id);

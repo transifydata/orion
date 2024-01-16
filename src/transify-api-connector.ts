@@ -47,7 +47,6 @@ export function formatDate(date: Date) {
     return `${year}-${month}-${day}`;
 }
 export function getCurrentFormattedDate() {
-    // TODO: REMOVE
     const currentDate = new Date();
     return formatDate(currentDate);
 }
