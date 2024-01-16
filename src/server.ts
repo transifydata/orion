@@ -5,10 +5,8 @@ import { migrateDbs } from "./sinks/sqlite-sink.js";
 import cors from "cors";
 import {
   getAllRoutesWithShapes,
-  resetGtfs,
   Route,
 } from "./gtfs-parser";
-import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
 import { getLiveVehicleLocations } from "./get-live-vehicle-locations";
 import getVehicleLocations from "./get-vehicle-locations";
 
@@ -16,37 +14,47 @@ const app = express();
 
 app.use(cors())
 
-await UpdatingGtfsFeed.initializeAll();
 await migrateDbs();
 
 let ROUTES_CACHE: Record<string, Route[]> = {};
 
 app.use(morgan("tiny"));
-app.get('/routes/:agency', async (req, res) => {
-    const agency = req.params.agency;
-    
-    if (ROUTES_CACHE[agency] === undefined) {
-        ROUTES_CACHE[agency] = await getAllRoutesWithShapes(agency);
-        res.json(ROUTES_CACHE[agency]);
-    } else {
-        res.json(ROUTES_CACHE[agency]);
+app.get('/routes/:agency', async (req, res, next) => {
+    try {
+        const agency = req.params.agency;
+
+        if (ROUTES_CACHE[agency] === undefined) {
+            ROUTES_CACHE[agency] = await getAllRoutesWithShapes(agency);
+            res.json(ROUTES_CACHE[agency]);
+        } else {
+            res.json(ROUTES_CACHE[agency]);
+        }
+    } catch (e) {
+        next(e);
     }
 });
 
 
-app.get('/positions/:agency', async (req, res) => {
-    const agency = req.params.agency;
-    let time = Date.now();
+app.get('/positions/:agency', async (req, res, next) => {
+    try {
+      const agency = req.params.agency;
+      let time = Date.now();
 
-    if (req.query.time && typeof req.query.time === 'string') {
+      if (req.query.time && typeof req.query.time === "string") {
         time = parseInt(req.query.time); // Parse the "time" parameter as an integer
-    }
+      }
 
-    if (req.query.live === 'true') {
-        res.json(await getVehicleLocations(agency, time))
-        return;
-    } else {
-        res.json(await getLiveVehicleLocations(agency, time))
+      let response;
+      if (req.query.live === "true") {
+        response = await getVehicleLocations(agency, time);
+      } else {
+        response = await getLiveVehicleLocations(agency, time);
+      }
+
+      console.log("Sending JSON!");
+      res.json(response);
+    } catch (e) {
+        next(e)
     }
 });
 
@@ -55,9 +63,21 @@ app.get('/', async (req, res) => {
 })
 
 app.get('/reset', async (req, res) => {
-    await resetGtfs();
     res.sendStatus(204);
 })
+
+
+function errorHandler (err, req, res, next) {
+    res.json({ error: err.message })
+}
+function logErrors (err, req, res, next) {
+    console.error("ERROR", err.stack, err)
+    next(err)
+}
+
+app.use(logErrors)
+app.use(errorHandler)
 app.listen(4000,() => {
     console.log(`[server]: Server is running at http://localhost:4000`);
 })
+

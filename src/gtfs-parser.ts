@@ -20,14 +20,11 @@ export interface Route {
   stops: FeatureCollection<Geometry, Stop>;
 }
 
-export async function resetGtfs() {
-  console.log("Resetting GTFS...");
-  await UpdatingGtfsFeed.updateAll();
-}
-
 export async function getAllRoutesWithShapes(agency: string): Promise<Route[]> {
   const routes1 = await downloadRoutesFromTransifyApi(agency);
-  const feed = await UpdatingGtfsFeed.getFeed(agency);
+
+  // TODO: fix this--routes may change as we change the time.
+  const feed = await UpdatingGtfsFeed.getFeed(agency, Date.now());
 
   return routes1.features.map((feature) => {
     console.log("Processing route", feature.properties.route_id);

@@ -205,7 +205,7 @@ export async function getScheduledVehicleLocations(
     // Use the scheduled GTFS feed to get the positions of all vehicles at a given time.
     // You don't need to fill out VID, status, secsSinceReport, stopId, or label.
 
-    const feed = await UpdatingGtfsFeed.getFeed(agency);
+    const feed = await UpdatingGtfsFeed.getFeed(agency, time);
 
     const gtfsDatabase = feed.db;
 
