@@ -122,10 +122,14 @@ ORDER BY trip_id, source;
   const statement = db.prepare(query);
 
   // @ts-ignore
-  return statement.all({
+  const results: ClosestStopTime[] = statement.all({
     date: getDateAsString(time), // YYYYMMDD format (e.g. "20231001")
     timeOfDay: timeOfDay,
     timeOfDayBefore: timeOfDayBefore,
     timeOfDayAfter: timeOfDayAfter,
   });
+
+  results.forEach((x: any) => x.shape_dist_traveled = parseFloat(x.shape_dist_traveled));
+
+  return results;
 }

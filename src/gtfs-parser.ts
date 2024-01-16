@@ -27,7 +27,6 @@ export async function getAllRoutesWithShapes(agency: string): Promise<Route[]> {
   const feed = await UpdatingGtfsFeed.getFeed(agency, Date.now());
 
   return routes1.features.map((feature) => {
-    console.log("Processing route", feature.properties.route_id);
     const route_obj: Route = convertApiRouteToRoute(
       feature,
       getStopByRoute(feed, feature.properties.route_id),

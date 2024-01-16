@@ -170,7 +170,7 @@ function processClosestStopTimes(
         const beforeShapeDistTravelled = beforeStopTime.shape_dist_traveled
         const afterShapeDistTravelled = afterStopTime.shape_dist_traveled
 
-        assert(beforeShapeDistTravelled && afterShapeDistTravelled, "Shape dist travelled fields not present!")
+        assert(beforeShapeDistTravelled !== null && afterShapeDistTravelled !== null, "Shape dist travelled fields not present!")
 
         // Interpolate the current location based on time
         const timeDiff =
@@ -205,18 +205,21 @@ function processClosestStopTimes(
         return {currentLocation, heading: normalizedDirection};
     }
 
-    return stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
+    let shapeInterpCount = 0;
+    const result = stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
         let result: {currentLocation: [number, number], heading: number};
 
-        if(beforeStopTime.shape_dist_traveled && afterStopTime.shape_dist_traveled && false) {
-            // console.log("Using shape interpolation strategy for buses!")
+        if(Number.isInteger(beforeStopTime.shape_dist_traveled) && Number.isInteger(afterStopTime.shape_dist_traveled)) {
+            shapeInterpCount += 1;
             result = interpolateLocationAlongShape(beforeStopTime, afterStopTime)
         } else {
-            // console.log("Using simple linear interpolation strategy for buses!")
             result = interpolateLocationSimpleLinear(beforeStopTime, afterStopTime)
         }
         return {...beforeStopTime, ...result}
     });
+
+    console.log(`Used shape interpolation for ${shapeInterpCount} / ${stopTimePairs.length} buses`)
+    return result;
 }
 
 function convertClosestStopTimeToVehiclePositions(
@@ -224,7 +227,6 @@ function convertClosestStopTimeToVehiclePositions(
     st: StopTimesWithLocation,
 ): VehiclePositionOutput {
     const {route_id: routeid, trip_headsign} = db.getTrips({trip_id: st.trip_id}, ["route_id", "trip_headsign"])[0];
-    // const {route_id: routeid, trip_headsign} = db.getTrip(st.trip_id, ["route_id", "trip_headsign"]);
 
     // When the user hovers over this bus, we preferentially show the live bus location by matching trip_ids
     // If there's no live bus in the GTFS-realtime feed, we show this scheduled bus along with the message
