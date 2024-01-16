@@ -9,203 +9,251 @@ import {
   openDb as openDb_internal,
 } from "gtfs";
 import axios from "axios";
-import { Database } from "better-sqlite3";
-import {formatDate,} from "./transify-api-connector";
+import BetterSqlite3, { Database } from "better-sqlite3";
+import { formatDate } from "./transify-api-connector";
 
 const config = {
   sqlitePath: undefined,
-  agencies: [
-    {
-      url: "https://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip",
-      prefix: undefined,
-    },
-    {
-      // Peterborough
-      url: "http://pt.mapstrat.com/current/google_transit.zip",
-      // To avoid ID conflicts with other agencies
-      // the library stores all the GTFS items in a single SQLite table
-      prefix: "peterborough",
-    },
-    {
-      url: "https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip",
-    },
-  ],
+  agencies: [],
 };
 
 function openDb(config, agency: string, time: number) {
-    config.sqlitePath = getFilepath(agency, time);
-    return openDb_internal(config);
+  config.sqlitePath = getFilepath(agency, time);
+  return openDb_internal(config);
 }
 
 function getFilepath(agency: string, time: number): string {
-    const formatted_date = formatDate(new Date(time));
-    return `gtfs-${agency}-${formatted_date}.db`;
+  const formatted_date = formatDate(new Date(time));
+  return `gtfs-${agency}-${formatted_date}.db`;
 }
 
+async function downloadFromGtfsService(agency, time) {
+  const tempFilePath = getFilepath(agency, time) + ".temp";
 
+  const response = await axios({
+    method: "get",
+    url: `https://staging-api.transify.ca/api/gtfs/db?agency=${agency}&date=${formatDate(
+      new Date(time),
+    )}`,
+    responseType: "stream",
+    onDownloadProgress: (progressEvent) => {
+      if (!progressEvent.total) {
+        return;
+      }
 
-async function downloadFromGtfsService(agency: string, time: number) {
-    const response = await axios({
-        method: 'get',
-        url: `https://staging-api.transify.ca/api/gtfs/db?agency=${agency}&date=${formatDate(new Date(time))}`,
-        responseType: 'stream', // Important to handle the response as a stream
+      const percentCompleted = Math.round(
+        (progressEvent.loaded * 100) / progressEvent.total,
+      );
+      process.stdout.clearLine(0);
+      process.stdout.cursorTo(0);
+      process.stdout.write(
+        `Downloading... ${percentCompleted}% ${progressEvent.loaded} / ${progressEvent.total}`,
+      );
+    },
+  });
+
+  if (response.status !== 200) {
+    throw new Error(
+      "Could not download GTFS: " + response.status + response.statusText,
+    );
+  }
+
+  const writer = fs.createWriteStream(tempFilePath);
+  response.data.pipe(writer);
+
+  console.log("Waiting for GTFS download...");
+
+  await new Promise((resolve, reject) => {
+    writer.on("finish", () => {
+      resolve(void 0);
     });
 
-    if (response.status !== 200) {
-        throw new Error("Could not download GTFS" + response.status + response.statusText)
-    }
-    const writer = fs.createWriteStream(getFilepath(agency, time));
-    response.data.pipe(writer);
-
-    // Handle the completion of the download
-
-    console.log("Waiting for GTFS download...")
-    await new Promise(resolve => {
-        writer.on('finish', () => {
-            resolve(void 0);
-        });
+    writer.on("error", (err) => {
+      console.error("GTFS Download resulted in err", err);
+      reject(err);
     });
+  });
+
+  // Rename the temporary file upon successful download
+  fs.renameSync(tempFilePath, getFilepath(agency, time));
+  console.log("GTFS download completed successfully.");
 }
 
 async function waitForLock(db) {
-    let iters = 0;
+  let iters = 0;
 
-    while (iters <= 5) {
-        try {
-            db.exec("PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE;")
-            return;
-        } catch (SqliteError) {
-            iters++;
-            console.log("Waiting for lock...", iters)
-            await new Promise(resolve => setTimeout(resolve, 800 *( iters ** 2)));
-        }
+  while (iters <= 5) {
+    try {
+      db.exec("PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE;");
+      return;
+    } catch (SqliteError) {
+      iters++;
+      console.log("Waiting for lock...", iters);
+      await new Promise((resolve) => setTimeout(resolve, 800 * iters ** 2));
     }
-    throw new Error("Could not get lock")
+  }
+  throw new Error("Could not get lock");
 }
 
 export class GtfsList {
-    private inner: Array<UpdatingGtfsFeed> = [];
+  private inner: Array<UpdatingGtfsFeed> = [];
 
-    constructor() {}
+  constructor() {}
 
-    public find(agency: string, time: number): UpdatingGtfsFeed | undefined {
-        const date = formatDate(new Date(time));
-        const index = this.inner.findIndex((feed) => feed.agency === agency && feed.formatted_date === date);
-        if (index === -1) {
-            return undefined
-        } else {
-            return this.inner[index];
-        }
+  public find(agency: string, time: number): UpdatingGtfsFeed | undefined {
+    const date = formatDate(new Date(time));
+    const index = this.inner.findIndex(
+      (feed) => feed.agency === agency && feed.formatted_date === date,
+    );
+    if (index === -1) {
+      return undefined;
+    } else {
+      return this.inner[index];
     }
+  }
 
-    public push(feed: UpdatingGtfsFeed) {
-        this.inner.push(feed);
-    }
+  public push(feed: UpdatingGtfsFeed) {
+    this.inner.push(feed);
+  }
 }
 
 export class UpdatingGtfsFeed {
+  private static AGENCY_MAP: GtfsList = new GtfsList();
 
-    private static AGENCY_MAP: GtfsList = new GtfsList();
+  agency: string;
+  formatted_date: string;
+  db: Database;
 
-    agency: string;
-    formatted_date: string;
-    db: Database;
+  private constructor(agency: string, db: Database, time: number) {
+    this.agency = agency;
+    this.db = db;
+    this.formatted_date = formatDate(new Date(time));
+  }
 
-    private constructor(agency: string, db: Database, time: number) {
-        this.agency = agency;
-        this.db = db;
-        this.formatted_date = formatDate(new Date(time));
+  static async openWait(
+    agency: string,
+    time: number,
+  ): Promise<UpdatingGtfsFeed> {
+    // If file doesn't exist, then download it
+    const filepath = getFilepath(agency, time);
+    console.log("Opening ", agency, filepath, "...");
+
+    const existsButEmpty =
+      fs.existsSync(filepath) && fs.statSync(filepath).size === 0;
+    const doesntExist = !fs.existsSync(filepath);
+    if (existsButEmpty || doesntExist) {
+      console.log("Downloading GTFS...", agency);
+      try {
+        await downloadFromGtfsService(agency, time);
+      } catch (err) {
+        console.error("Could not download GTFS", agency, err);
+        throw err;
+      }
     }
+    let max_iters = 0;
+    while (max_iters <= 5) {
+      max_iters += 1;
+      try {
+        const db = openDb(config, agency, time);
+        this.fix_gtfs_files(db);
+        console.log("Successfully opened", agency);
 
-    static async openWait(agency: string, time: number): Promise<UpdatingGtfsFeed> {
-        // If file doesn't exist, then download it
-        const filepath = getFilepath(agency, time);
-        console.log("Opening ", agency, filepath, "...")
-
-        const existsButEmpty = fs.existsSync(filepath) && fs.statSync(filepath).size === 0;
-        const doesntExist = !fs.existsSync(filepath);
-        if (existsButEmpty || doesntExist) {
-            console.log("Downloading GTFS...", agency)
-            try {
-                await downloadFromGtfsService(agency, time);
-            } catch (err) {
-                console.error("Could not download GTFS", agency, err)
-                throw err;
-            }
-        }
-        let max_iters = 0;
-        while (max_iters <= 5) {
-            max_iters += 1;
-            try {
-                const db = openDb(config, agency, time);
-                console.log("Successfully opened", agency)
-
-                // The index should already have been created on all new GTFS by transify-api,
-                // but for old GTFS files, we need to create this index to speed up querying vehicle positions
-                db.exec("create index if not exists idx_stop_times_trip_id on stop_times (trip_id, stop_sequence);")
-
-                return new UpdatingGtfsFeed(agency, db, time);
-            } catch (err: any) {
-                if (err?.code === 'SQLITE_BUSY') {
-                    console.log("Locked waiting for db...", agency)
-                } else {
-                    console.log('err is', err)
-                    throw err
-                }
-            }
-        }
-        throw new Error("Could not open db--too many attempts waiting for lock")
-    }
-
-
-    static async getFeed(agency: string, time: number): Promise<UpdatingGtfsFeed> {
-        const found = UpdatingGtfsFeed.AGENCY_MAP.find(agency, time);
-
-        console.log("Returning feed for", agency, found?.formatted_date)
-        if (found === undefined) {
-            const newFeed = await UpdatingGtfsFeed.openWait(agency, time);
-            UpdatingGtfsFeed.AGENCY_MAP.push(newFeed);
-            return newFeed;
+        return new UpdatingGtfsFeed(agency, db, time);
+      } catch (err: any) {
+        if (err?.code === "SQLITE_BUSY") {
+          console.log("Locked waiting for db...", agency);
         } else {
-            return found;
+          console.log("err is", err);
+          throw err;
         }
+      }
     }
+    throw new Error("Could not open db--too many attempts waiting for lock");
+  }
 
-    getTerminalDepartureTime(trip_id: string): string {
-        // Returns the departure time of the last stop in a trip
-        const statement = this.db.prepare("SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY stop_sequence ASC LIMIT 1");
-        const row = statement.get({trip_id: trip_id});
-        // @ts-ignore
-        return row.departure_time;
-    }
+  private static fix_gtfs_files(db: BetterSqlite3.Database) {
+    // Some GTFS files don't follow the format we specify (e.g. missing tables)
+    // Fix these files here. All the queries are idempotent (they use "IF NOT EXISTS" syntax) and are quick to run.
 
-    getShapesAsGeoJSON(query: Record<string, any>) {
-        return getShapesAsGeoJSON(query, {db: this.db});
-    }
+    // The index should already have been created on all new GTFS by transify-api,
+    // but for old GTFS files, we need to create this index to speed up querying vehicle positions
+    db.exec(
+      "create index if not exists idx_stop_times_trip_id on stop_times (trip_id, stop_sequence);",
+    );
 
-    getRoutes(query: Record<string, any>, fields: Array<string>) {
-        return getRoutes(query, fields, undefined, {db: this.db})
-    }
+    // Some GO-Transit GTFS files don't have a calendar.txt file, so fix it here
+    db.exec(`create table if not exists calendar
+                    (
+                        service_id TEXT,
+                        monday     TEXT,
+                        tuesday    TEXT,
+                        wednesday  TEXT,
+                        thursday   TEXT,
+                        friday     TEXT,
+                        saturday   TEXT,
+                        sunday     TEXT,
+                        start_date TEXT,
+                        end_date   TEXT
+                    );
+                `);
+  }
 
-    getStops(query: Record<string, any>, fields: Array<string>) {
-        return getStops(query, fields, undefined, {db: this.db})
-    }
+  static async getFeed(
+    agency: string,
+    time: number,
+  ): Promise<UpdatingGtfsFeed> {
+    const found = UpdatingGtfsFeed.AGENCY_MAP.find(agency, time);
 
-    getStopLocation(stop_id: string): [number, number] {
-        // Returns a tuple of lat, lon coordinates for a stop_id
-        const ret = this.getStops({stop_id: stop_id}, ['stop_lat', 'stop_lon'])[0];
-        return [parseFloat(ret.stop_lat),parseFloat(ret.stop_lon)];
+    console.log("Returning feed for", agency, found?.formatted_date);
+    if (found === undefined) {
+      const newFeed = await UpdatingGtfsFeed.openWait(agency, time);
+      UpdatingGtfsFeed.AGENCY_MAP.push(newFeed);
+      return newFeed;
+    } else {
+      return found;
     }
-    getStoptimes(query: Record<string, any>, fields: Array<string>) {
-        return getStoptimes(query, fields, undefined, {db: this.db})
-    }
+  }
 
-    getTrips(query: Record<string, any>, fields: Array<string>) {
-        return getTrips(query, fields, undefined, {db: this.db})
-    }
+  getTerminalDepartureTime(trip_id: string): string {
+    // Returns the departure time of the last stop in a trip
+    const statement = this.db.prepare(
+      "SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY stop_sequence ASC LIMIT 1",
+    );
+    const row = statement.get({ trip_id: trip_id });
+    // @ts-ignore
+    return row.departure_time;
+  }
 
-    close() {
-        closeDb(this.db);
-    }
+  getShapesAsGeoJSON(query: Record<string, any>) {
+    return getShapesAsGeoJSON(query, { db: this.db });
+  }
+
+  getRoutes(query: Record<string, any>, fields: Array<string>) {
+    return getRoutes(query, fields, undefined, { db: this.db });
+  }
+
+  getStops(query: Record<string, any>, fields: Array<string>) {
+    return getStops(query, fields, undefined, { db: this.db });
+  }
+
+  getStopLocation(stop_id: string): [number, number] {
+    // Returns a tuple of lat, lon coordinates for a stop_id
+    const ret = this.getStops({ stop_id: stop_id }, [
+      "stop_lat",
+      "stop_lon",
+    ])[0];
+    return [parseFloat(ret.stop_lat), parseFloat(ret.stop_lon)];
+  }
+
+  getStoptimes(query: Record<string, any>, fields: Array<string>) {
+    return getStoptimes(query, fields, undefined, { db: this.db });
+  }
+
+  getTrips(query: Record<string, any>, fields: Array<string>) {
+    return getTrips(query, fields, undefined, { db: this.db });
+  }
+
+  close() {
+    closeDb(this.db);
+  }
 }
-

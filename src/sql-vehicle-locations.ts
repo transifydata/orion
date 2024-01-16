@@ -84,10 +84,10 @@ export function getScheduledVehicleLocationsSQL(
 WITH eligible_trips AS (
   SELECT DISTINCT t.trip_id
   FROM trips t
-    INNER JOIN calendar c ON t.service_id = c.service_id
-  WHERE c.${getDayOfWeekColumnName(
+    LEFT JOIN calendar c ON t.service_id = c.service_id
+  WHERE (c.${getDayOfWeekColumnName(
     time,
-  )} = 1 AND c.start_date <= @date AND c.end_date >= @date
+  )} = 1 AND c.start_date <= @date AND c.end_date >= @date) OR c.service_id IS NULL
 ),
 after_stops AS (
   SELECT ROWID, trip_id, MIN(arrival_time) AS first_stop_after_selected_time
