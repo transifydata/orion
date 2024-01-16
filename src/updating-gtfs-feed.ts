@@ -11,25 +11,12 @@ import {
 import axios from "axios";
 import { Database } from "better-sqlite3";
 import {formatDate, getCurrentFormattedDate} from "./transify-api-connector";
+import {Feature, FeatureCollection, Geometry, LineString} from "@turf/helpers";
+import {Shape} from "./shape";
 
 const config = {
   sqlitePath: undefined,
-  agencies: [
-    {
-      url: "https://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip",
-      prefix: undefined,
-    },
-    {
-      // Peterborough
-      url: "http://pt.mapstrat.com/current/google_transit.zip",
-      // To avoid ID conflicts with other agencies
-      // the library stores all the GTFS items in a single SQLite table
-      prefix: "peterborough",
-    },
-    {
-      url: "https://assets.metrolinx.com/raw/upload/Documents/Metrolinx/Open%20Data/GO-GTFS.zip",
-    },
-  ],
+  agencies: []
 };
 
 function openDb(config, agency: string, time: number) {
@@ -107,11 +94,13 @@ export class UpdatingGtfsFeed {
 
     private static AGENCY_MAP: GtfsList = new GtfsList();
 
+    private shapes_cache: Record<string, Shape>;
     agency: string;
     formatted_date: string;
     db: Database;
 
     private constructor(agency: string, db: Database, time: number) {
+        this.shapes_cache = {}
         this.agency = agency;
         this.db = db;
         this.formatted_date = formatDate(new Date(time));
@@ -210,9 +199,30 @@ export class UpdatingGtfsFeed {
         // @ts-ignore
         return row.departure_time;
     }
-
     getShapesAsGeoJSON(query: Record<string, any>) {
         return getShapesAsGeoJSON(query, {db: this.db});
+    }
+    getShapeByTripID(trip_id: string): Shape {
+        if (this.shapes_cache[trip_id]) {
+            return this.shapes_cache[trip_id]
+        }
+
+        const query = this.db.prepare(
+            `SELECT s.* FROM trips t INNER JOIN shapes s ON t.shape_id = s.shape_id WHERE
+                t.trip_id = @trip_id ORDER BY CAST(s.shape_pt_sequence as integer) ASC
+                `)
+        const rows: any[] = query.all({trip_id: trip_id})
+
+        const coordinates: [number, number][] = []
+        for (const row of rows) {
+            coordinates.push([row.shape_pt_lon, row.shape_pt_lat])
+        }
+
+        this.shapes_cache[trip_id] = new Shape({
+            type: "LineString",
+            coordinates
+        })
+        return this.shapes_cache[trip_id]
     }
 
     getRoutes(query: Record<string, any>, fields: Array<string>) {

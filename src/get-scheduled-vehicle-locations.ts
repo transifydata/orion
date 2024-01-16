@@ -130,11 +130,14 @@ function processClosestStopTimes(
     const timeOfDaySecs = getTimeOfDayForGtfs(time);
 
     return stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
-        const beforeStopLocation = feed.getStopLocation(beforeStopTime.stop_id);
-        const afterStopLocation = feed.getStopLocation(afterStopTime.stop_id);
+        const shape = feed.getShapeByTripID(beforeStopTime.trip_id)
+
+        const beforeShapeDistTravelled = beforeStopTime.shape_dist_traveled
+        const afterShapeDistTravelled = afterStopTime.shape_dist_traveled
+
+        assert(beforeShapeDistTravelled && afterShapeDistTravelled)
 
         // Interpolate the current location based on time
-        // TODO: interpolate along the route's polyline
         const timeDiff =
             HHMMSSToSeconds(afterStopTime.arrival_time) -
             HHMMSSToSeconds(beforeStopTime.arrival_time);
@@ -142,18 +145,17 @@ function processClosestStopTimes(
             timeOfDaySecs - HHMMSSToSeconds(beforeStopTime.arrival_time);
         const interpolationFactor = currentTimeDiff / timeDiff;
 
-        const currentLocation: [number, number] = [
-            beforeStopLocation[0] +
-            interpolationFactor * (afterStopLocation[0] - beforeStopLocation[0]),
-            beforeStopLocation[1] +
-            interpolationFactor * (afterStopLocation[1] - beforeStopLocation[1]),
-        ];
+        const currentShapeDistTravelled = beforeShapeDistTravelled + interpolationFactor * (afterShapeDistTravelled - beforeShapeDistTravelled);
+        const currentLocation = shape.interpolate(currentShapeDistTravelled)
+
+        // Calculate the position a bit into the future to figure out the angle of the bus
+        const deltaPosition = shape.interpolate(currentShapeDistTravelled + 0.01)
 
         // Calculate the direction (heading) in degrees
         const direction =
             Math.atan2(
-                afterStopLocation[1] - beforeStopLocation[1],
-                afterStopLocation[0] - beforeStopLocation[0],
+                deltaPosition[1] - currentLocation[1],
+                deltaPosition[0] - currentLocation[0],
             ) *
             (180 / Math.PI);
 
