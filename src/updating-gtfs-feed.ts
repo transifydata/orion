@@ -9,13 +9,13 @@ import {
   openDb as openDb_internal,
 } from "gtfs";
 import axios from "axios";
-import {Shape} from "./shape";
+import { Shape } from "./shape";
 import BetterSqlite3, { Database } from "better-sqlite3";
 import { formatDate } from "./transify-api-connector";
 
 const config = {
   sqlitePath: undefined,
-  agencies: []
+  agencies: [],
 };
 
 function openDb(config, agency: string, time: number) {
@@ -24,7 +24,7 @@ function openDb(config, agency: string, time: number) {
 }
 
 function getFilepath(agency: string, time: number): string {
-    const formatted_date = formatDate(new Date(time));
+  const formatted_date = formatDate(new Date(time));
   return `gtfs-${agency}-${formatted_date}.db`;
 }
 
@@ -64,7 +64,7 @@ async function downloadFromGtfsService(agency, time) {
 
   console.log("Waiting for GTFS download...");
 
-      await new Promise((resolve, reject) => {
+  await new Promise((resolve, reject) => {
     writer.on("finish", () => {
       resolve(void 0);
     });
@@ -118,21 +118,20 @@ export class GtfsList {
   }
 }
 
-
 export class UpdatingGtfsFeed {
-    private static AGENCY_MAP: GtfsList = new GtfsList();
+  private static AGENCY_MAP: GtfsList = new GtfsList();
 
   private shapes_cache: Record<string, Shape>;
-    agency: string;
-    formatted_date: string;
+  agency: string;
+  formatted_date: string;
   db: Database;
 
-    private constructor(agency: string, db: Database, time: number) {
-        this.shapes_cache = {}
-        this.agency = agency;
-        this.db = db;
-        this.formatted_date = formatDate(new Date(time));
-    }
+  private constructor(agency: string, db: Database, time: number) {
+    this.shapes_cache = {};
+    this.agency = agency;
+    this.db = db;
+    this.formatted_date = formatDate(new Date(time));
+  }
 
   static async openWait(
     agency: string,
@@ -192,12 +191,10 @@ export class UpdatingGtfsFeed {
     );
 
     db.exec(
-        "create index if not exists idx_stop_times_trip_id_arrival_time on stop_times (trip_id, arrival_time);"
-    )
-
-    db.exec(
-        "create index if not exists idx_trips_trip_id on trips (trip_id);",
+      "create index if not exists idx_stop_times_trip_id_arrival_time on stop_times (trip_id, arrival_time);",
     );
+
+    db.exec("create index if not exists idx_trips_trip_id on trips (trip_id);");
 
     // Some GO-Transit GTFS files don't have a calendar.txt file, so fix it here
     db.exec(`create table if not exists calendar
@@ -214,7 +211,6 @@ export class UpdatingGtfsFeed {
                         end_date   TEXT
                     );
                 `);
-
   }
 
   static async getFeed(
@@ -223,7 +219,12 @@ export class UpdatingGtfsFeed {
   ): Promise<UpdatingGtfsFeed> {
     const found = UpdatingGtfsFeed.AGENCY_MAP.find(agency, time);
 
-    console.log("Returning feed for", agency, "found?: ", found?.formatted_date);
+    console.log(
+      "Returning feed for",
+      agency,
+      "found?: ",
+      found?.formatted_date,
+    );
     if (found === undefined) {
       const newFeed = await UpdatingGtfsFeed.openWait(agency, time);
       UpdatingGtfsFeed.AGENCY_MAP.push(newFeed);
@@ -236,37 +237,39 @@ export class UpdatingGtfsFeed {
   getTerminalDepartureTime(trip_id: string): string {
     // Returns the departure time of the last stop in a trip
     const statement = this.db.prepare(
-      "SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY stop_sequence ASC LIMIT 1");
+      "SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY stop_sequence ASC LIMIT 1",
+    );
 
-    const row = statement.get({trip_id: trip_id});
+    const row = statement.get({ trip_id: trip_id });
     // @ts-ignore
     return row.departure_time;
+  }
+  getShapesAsGeoJSON(query: Record<string, any>) {
+    return getShapesAsGeoJSON(query, { db: this.db });
+  }
+  getShapeByTripID(trip_id: string): Shape {
+    if (this.shapes_cache[trip_id]) {
+      return this.shapes_cache[trip_id];
     }
-    getShapesAsGeoJSON(query: Record<string, any>) {
-        return getShapesAsGeoJSON(query, {db: this.db});
-    }
-    getShapeByTripID(trip_id: string): Shape {
-        if (this.shapes_cache[trip_id]) {
-            return this.shapes_cache[trip_id]
-        }
 
-        const query = this.db.prepare(
-            `SELECT s.* FROM trips t INNER JOIN shapes s ON t.shape_id = s.shape_id WHERE
+    const query = this.db.prepare(
+      `SELECT s.* FROM trips t INNER JOIN shapes s ON t.shape_id = s.shape_id WHERE
                 t.trip_id = @trip_id ORDER BY CAST(s.shape_pt_sequence as integer) ASC
-                `)
-        const rows: any[] = query.all({trip_id: trip_id})
+                `,
+    );
+    const rows: any[] = query.all({ trip_id: trip_id });
 
-        const coordinates: [number, number][] = []
-        for (const row of rows) {
-            coordinates.push([row.shape_pt_lon, row.shape_pt_lat])
-        }
-
-        this.shapes_cache[trip_id] = new Shape({
-            type: "LineString",
-            coordinates
-        })
-        return this.shapes_cache[trip_id]
+    const coordinates: [number, number][] = [];
+    for (const row of rows) {
+      coordinates.push([row.shape_pt_lon, row.shape_pt_lat]);
     }
+
+    this.shapes_cache[trip_id] = new Shape({
+      type: "LineString",
+      coordinates,
+    });
+    return this.shapes_cache[trip_id];
+  }
 
   getRoutes(query: Record<string, any>, fields: Array<string>) {
     return getRoutes(query, fields, undefined, { db: this.db });
@@ -295,10 +298,12 @@ export class UpdatingGtfsFeed {
 
   getTrip(trip_id: string, fields: Array<string>): object {
     const fieldsString = fields.join(", ");
-    const query = this.db.prepare(`SELECT ${fieldsString} FROM trips WHERE trip_id = @trip_id`)
-    const result = query.get({trip_id: trip_id})
-    console.log("get trip result", result)
-    return result as object
+    const query = this.db.prepare(
+      `SELECT ${fieldsString} FROM trips WHERE trip_id = @trip_id`,
+    );
+    const result = query.get({ trip_id: trip_id });
+    console.log("get trip result", result);
+    return result as object;
   }
 
   close() {

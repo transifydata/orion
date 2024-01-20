@@ -8,7 +8,13 @@ import Long from "long";
 import { UpdatingGtfsFeed } from "../updating-gtfs-feed";
 import TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
 import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
-import { getClosestScheduledStopTime } from "../get-scheduled-vehicle-locations";
+import {
+  getClosestScheduledStopTime,
+  getClosestStopTimes,
+  processClosestStopTimes,
+} from "../get-scheduled-vehicle-locations";
+import assert from "assert";
+import { Point } from "@turf/turf";
 
 const databasePath =
   (process.env["ORION_DATABASE_PATH"] || ".") + "/orion-database.db";
@@ -25,7 +31,7 @@ export async function openDb() {
 export async function migrateDbs() {
   console.log("Starting migrations...");
   const db = await openDb();
-  console.log("Migrating...")
+  console.log("Migrating...");
   await db.migrate();
 
   await db.run("PRAGMA journal_mode = WAL;");
@@ -42,7 +48,7 @@ async function writeValue(
   server_date: string,
   agency: Agency,
 ) {
-  const colon = {};
+  const rowObject = {};
   for (const key in value) {
     let v: any;
     if (key == "lat" || key == "lon") {
@@ -50,22 +56,23 @@ async function writeValue(
     } else {
       v = value[key];
     }
-    colon[`:${key}`] = v;
+    rowObject[":" + key] = v;
   }
 
-  colon[":agency_id"] = agency.id;
-  colon[":server_date"] = server_date;
-  colon[":server_time"] = time;
+  rowObject[":agency_id"] = agency.id;
+  rowObject[":server_date"] = server_date;
+  rowObject[":server_time"] = time;
 
-  const column_expr = Object.keys(colon).join(",");
+  const column_expr = Object.keys(rowObject).join(",");
+  const column_names = Object.keys(rowObject)
+    .map((x) => x.slice(1))
+    .join(",");
 
   const table_name = map_provider_to_table_name(agency.provider);
   try {
     // Automatic duplicate checking, so use INSERT OR IGNORE...
-    await db.run(
-      `INSERT OR IGNORE INTO ${table_name} VALUES (${column_expr})`,
-      colon,
-    );
+    const query = `INSERT OR IGNORE INTO ${table_name} (${column_names}) VALUES (${column_expr})`;
+    await db.run(query, rowObject);
   } catch (e) {
     console.error("Error inserting " + e + " " + JSON.stringify(value));
     throw e;
@@ -104,6 +111,51 @@ export async function fixData(
   }
 }
 
+export interface DistanceAlongRoute {
+  scheduledDistanceAlongRoute: number;
+  actualDistanceAlongRoute: number;
+}
+
+export function calculateDistanceAlongRoute(
+  currentTime: number,
+  feed: UpdatingGtfsFeed,
+  vp: VehiclePosition,
+): DistanceAlongRoute {
+  const busDate = new Date(currentTime - 1000 * (vp.secsSinceReport || 0));
+
+  const scheduledLocation = getClosestStopTimes(feed.db, busDate, vp.tripId);
+  if (scheduledLocation.length === 1) {
+    console.warn(
+      "Bus is nearly ending it's journey! Skipping.",
+      currentTime,
+      vp.tripId,
+      scheduledLocation,
+    );
+    return { scheduledDistanceAlongRoute: 0, actualDistanceAlongRoute: 0 };
+  } else if (scheduledLocation.length == 0) {
+    // If we can't find a scheduled location, that means the trip has already ended. This bus is late and still not finished.
+    // TODO: what to do?
+    return { scheduledDistanceAlongRoute: -1, actualDistanceAlongRoute: -1 };
+  } else {
+    assert(scheduledLocation.length == 2);
+  }
+  const interpolated = processClosestStopTimes(
+    feed,
+    scheduledLocation,
+    busDate,
+  );
+
+  const scheduledDistanceAlongRoute = interpolated[0].distanceAlongRoute;
+
+  const locationPoint: Point = {
+    type: "Point",
+    coordinates: [vp.lon as number, vp.lat as number],
+  };
+  const shape = feed.getShapeByTripID(vp.tripId);
+  const actualDistanceAlongRoute = shape.project(locationPoint) * shape.length;
+
+  return { scheduledDistanceAlongRoute, actualDistanceAlongRoute };
+}
 export async function writeToSink(
   gtfs: UpdatingGtfsFeed,
   agency: Agency,
@@ -116,8 +168,16 @@ export async function writeToSink(
 
   const currentDate = new Date().toISOString().slice(0, 10);
 
+  const dataWithDistance: Array<VehiclePosition & DistanceAlongRoute> =
+    data.map((x) => {
+      const distances = calculateDistanceAlongRoute(currentTime, gtfs, x);
+      return { ...x, ...distances };
+    });
+
   await Promise.all(
-    data.map((v) => writeValue(db, v, currentTime, currentDate, agency)),
+    dataWithDistance.map((v) =>
+      writeValue(db, v, currentTime, currentDate, agency),
+    ),
   );
 }
 
@@ -186,7 +246,7 @@ export async function writeTripUpdatesToSink(
   }
 }
 
-async function pruneDb(db, currentTime: number) {
+async function pruneDb(db: Database, currentTime: number) {
   if (currentTime - lastPruned > 10 * 3600 * 1000) {
     console.log("Pruning...");
     lastPruned = currentTime;
