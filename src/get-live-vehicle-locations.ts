@@ -40,16 +40,6 @@ export interface SQLVehiclePosition extends VehiclePosition, TripUpdate {
   server_time: number;
 }
 
-function getRouteByRouteId(feed: UpdatingGtfsFeed, routeId: string) {
-  const ret = feed.getRoutes(
-    {
-      route_id: routeId,
-    },
-    ["route_long_name", "route_short_name"],
-  );
-  return ret[0];
-}
-
 export async function getLiveVehicleLocations(
   agency: string,
   time: number,

@@ -3,11 +3,9 @@ import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
 import BetterSqlite3 from "better-sqlite3";
 import {
   VehiclePositionOutput,
-  VehiclePosition,
 } from "./providers/gtfs-realtime";
 import assert from "assert";
 import { getScheduledVehicleLocationsSQL } from "./sql-vehicle-locations";
-import { calculateDistanceAlongRoute } from "./sinks/sqlite-sink";
 
 export function HHMMSSToSeconds(time) {
   // Split the time string into hours, minutes, and seconds

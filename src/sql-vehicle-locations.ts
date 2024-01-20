@@ -12,7 +12,7 @@ export async function sqlVehicleLocations(
 ) {
   const startTimeBuffer = time - 5 * 60 * 1000;
 
-  const rows: SQLVehiclePosition[] = await db.all(
+  return await db.all(
     `
 WITH latest_vehicle_positions AS
 ( SELECT
@@ -46,7 +46,6 @@ WITH latest_vehicle_positions AS
       ":agency_id": agency,
     },
   );
-  return rows;
 }
 
 function getDayOfWeekColumnName(date: Date): string {

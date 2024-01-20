@@ -80,22 +80,6 @@ async function downloadFromGtfsService(agency, time) {
   console.log("GTFS download completed successfully.");
 }
 
-async function waitForLock(db) {
-  let iters = 0;
-
-  while (iters <= 5) {
-    try {
-      db.exec("PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE;");
-      return;
-    } catch (SqliteError) {
-      iters++;
-      console.log("Waiting for lock...", iters);
-      await new Promise((resolve) => setTimeout(resolve, 800 * iters ** 2));
-    }
-  }
-  throw new Error("Could not get lock");
-}
-
 export class GtfsList {
   private inner: Array<UpdatingGtfsFeed> = [];
 
