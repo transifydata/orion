@@ -18,18 +18,44 @@ const config = {
   agencies: [],
 };
 
-function openDb(config, agency: string, time: number) {
-  config.sqlitePath = getFilepath(agency, time);
+function openDb(config, filepath: string) {
+  config.sqlitePath = filepath;
   return openDb_internal(config);
 }
 
-function getFilepath(agency: string, time: number): string {
-  const formatted_date = formatDate(new Date(time));
-  return `gtfs-${agency}-${formatted_date}.db`;
+function getFilepath(agency: string, id: number): string {
+  // Theoretically, only ID should be necessary, but we include agency in the filename for debugging purposes
+  return `gtfs-${agency}-${id}.db`;
 }
 
-async function downloadFromGtfsService(agency, time) {
-  const tempFilePath = getFilepath(agency, time) + ".temp";
+export interface GtfsFeedInfoResponse {
+  zip_s3_url: string
+  db_s3_url: string
+  valid_start: Date
+  valid_end: Date
+  id: number
+}
+async function getFeedInfoFromGtfsService(agency: string, time: number): Promise<GtfsFeedInfoResponse> {
+  const response = await axios({
+    method: "get",
+    url: `http://127.0.0.1:8000/api/gtfs/urls?agency=${agency}&date=${formatDate(
+        new Date(time),
+    )}`
+  })
+
+  const data = response.data;
+  return {
+    zip_s3_url: data.zip_s3_url,
+    db_s3_url: data.db_s3_url,
+    valid_start: new Date(data.valid_start),
+    valid_end: new Date(data.valid_end),
+    id: data.id
+  } as GtfsFeedInfoResponse;
+}
+
+
+async function downloadFromGtfsService(agency: string, time: number, filepath: string) {
+  const tempFilePath = filepath + ".temp";
 
   const response = await axios({
     method: "get",
@@ -76,7 +102,7 @@ async function downloadFromGtfsService(agency, time) {
   });
 
   // Rename the temporary file upon successful download
-  fs.renameSync(tempFilePath, getFilepath(agency, time));
+  fs.renameSync(tempFilePath, filepath);
   console.log("GTFS download completed successfully.");
 }
 
@@ -86,9 +112,9 @@ export class GtfsList {
   constructor() {}
 
   public find(agency: string, time: number): UpdatingGtfsFeed | undefined {
-    const date = formatDate(new Date(time));
+    const date = new Date(time);
     const index = this.inner.findIndex(
-      (feed) => feed.agency === agency && feed.formatted_date === date,
+      (feed) => feed.agency === agency && feed.date_contains(date)
     );
     if (index === -1) {
       return undefined;
@@ -107,22 +133,27 @@ export class UpdatingGtfsFeed {
 
   private shapes_cache: Record<string, Shape>;
   agency: string;
-  formatted_date: string;
+  valid_start: Date;
+  valid_end: Date;
+  id: number;
   db: Database;
 
-  private constructor(agency: string, db: Database, time: number) {
+  private constructor(agency: string, db: Database, valid_start: Date, valid_end: Date, id: number) {
     this.shapes_cache = {};
     this.agency = agency;
     this.db = db;
-    this.formatted_date = formatDate(new Date(time));
+    this.valid_end = valid_end;
+    this.valid_start = valid_start;
+    this.id = id;
   }
 
-  static async openWait(
+  private static async openWait(
     agency: string,
     time: number,
   ): Promise<UpdatingGtfsFeed> {
     // If file doesn't exist, then download it
-    const filepath = getFilepath(agency, time);
+    const feedInfo = await getFeedInfoFromGtfsService(agency, time);
+    const filepath = getFilepath(agency, feedInfo.id);
     console.log("Opening ", agency, filepath, "...");
 
     const existsButEmpty =
@@ -134,7 +165,7 @@ export class UpdatingGtfsFeed {
       downloaded = true;
       console.log("Downloading GTFS...", agency);
       try {
-        await downloadFromGtfsService(agency, time);
+        await downloadFromGtfsService(agency, time, filepath);
       } catch (err) {
         console.error("Could not download GTFS", agency, err);
         throw err;
@@ -144,14 +175,14 @@ export class UpdatingGtfsFeed {
     while (max_iters <= 5) {
       max_iters += 1;
       try {
-        const db = openDb(config, agency, time);
+        const db = openDb(config, filepath);
 
         if (downloaded) {
           this.fix_gtfs_files(db);
         }
         console.log("Successfully opened", agency);
 
-        return new UpdatingGtfsFeed(agency, db, time);
+        return new UpdatingGtfsFeed(agency, db, feedInfo.valid_start, feedInfo.valid_end, feedInfo.id);
       } catch (err: any) {
         if (err?.code === "SQLITE_BUSY") {
           console.log("Locked waiting for db...", agency);
@@ -207,7 +238,7 @@ export class UpdatingGtfsFeed {
       "Returning feed for",
       agency,
       "found?: ",
-      found?.formatted_date,
+      found?.valid_start,
     );
     if (found === undefined) {
       const newFeed = await UpdatingGtfsFeed.openWait(agency, time);
@@ -244,6 +275,13 @@ export class UpdatingGtfsFeed {
     const rows: any[] = query.all({ trip_id: trip_id });
 
     const coordinates: [number, number][] = [];
+
+    if (rows.length == 0) {
+      const error = new Error("Couldn't find any shapes for trip");
+      console.error(error, trip_id);
+      throw new Error(error + ":" + trip_id);
+    }
+
     for (const row of rows) {
       coordinates.push([row.shape_pt_lon, row.shape_pt_lat]);
     }
@@ -292,5 +330,9 @@ export class UpdatingGtfsFeed {
 
   close() {
     closeDb(this.db);
+  }
+
+  date_contains(date: Date): boolean {
+    return this.valid_start <= date && this.valid_end >= date;
   }
 }
