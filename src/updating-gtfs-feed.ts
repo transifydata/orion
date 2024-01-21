@@ -71,10 +71,8 @@ async function downloadFromGtfsService(agency: string, time: number, filepath: s
       const percentCompleted = Math.round(
         (progressEvent.loaded * 100) / progressEvent.total,
       );
-      process.stdout.clearLine(0);
-      process.stdout.cursorTo(0);
-      process.stdout.write(
-        `Download Progress ${agency} ${percentCompleted}% ${progressEvent.loaded} / ${progressEvent.total}`,
+      console.log(
+        `Downloading... ${percentCompleted}% ${progressEvent.loaded} / ${progressEvent.total}`,
       );
     },
   });
