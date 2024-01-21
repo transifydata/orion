@@ -4,7 +4,7 @@ import length from "@turf/length";
 import {along, feature, nearestPointOnLine, Point} from "@turf/turf";
 
 export class Shape {
-    private inner: LineString;
+    private readonly inner: LineString;
     readonly length: number;
 
     constructor(ls: LineString) {

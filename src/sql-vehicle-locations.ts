@@ -1,6 +1,5 @@
 // Various SQL scripts for getting vehicle locations from the database
 
-import {SQLVehiclePosition} from "./get-live-vehicle-locations";
 import {Database} from "sqlite";
 import BetterSqlite3 from "better-sqlite3";
 import {ClosestStopTime} from "./get-scheduled-vehicle-locations";

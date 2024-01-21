@@ -98,42 +98,6 @@ export function getClosestStopTimes(db: BetterSqlite3.Database, time: Date, trip
     return getScheduledVehicleLocationsSQL(time, db, timeOfDay, timeOfDayBefore, timeOfDayAfter, tripFilter);
 }
 
-export async function testArrivalDepartureFits() {
-    // const vp: VehiclePosition = {
-    //     rid: "502-343",
-    //     vid: "1286",
-    //     lat: 43.6663,
-    //     lon: -79.73421,
-    //     heading: 360,
-    //     tripId: "23758260-240108-MULTI-Saturday-01",
-    //     stopIndex: 10,
-    //     status: 2,
-    //     secsSinceReport: 37,
-    //     stopId: "00030110",
-    //     label: "1286"
-    // };
-    // const currentTime = 1705789114481;
-    // const feed = await UpdatingGtfsFeed.openWait("brampton", currentTime);
-    // const scheduledResults = calculateScheduledPosition(currentTime, feed, vp);
-    // console.log("ScheduledResults", scheduledResults)
-}
-export async function testScheduledVehiclesLocation() {
-    // const date = new Date(2024, 0, 19, 13, 20, 0);
-    // const feed = await UpdatingGtfsFeed.openWait("brampton", date.getTime());
-    //
-    // for (let i = 0; i < 1; i++) {
-    //   const stopTimes = getClosestStopTimes(
-    //     feed.db,
-    //     date,
-    //     "23818296-240108-MULTI-Weekday-03",
-    //   );
-    //   console.log("StopTimes!", stopTimes);
-    //   assert(stopTimes.length == 2);
-    //   const interpolated = processClosestStopTimes(feed, stopTimes, date);
-    //   console.log("Interpolated", interpolated);
-    // }
-}
-
 export interface StopTimesWithLocation extends ClosestStopTime {
     // Lat, lon
     currentLocation: [number, number];
@@ -216,9 +180,7 @@ export function processClosestStopTimes(
 
         const currentShapeDistTravelled =
             beforeShapeDistTravelled + interpolationFactor * (afterShapeDistTravelled - beforeShapeDistTravelled);
-        if (currentShapeDistTravelled >= 1.0) {
-            let wtf = 5;
-        }
+
         const currentLocation = shape.interpolate(currentShapeDistTravelled);
 
         // To get the angle, we need to compare two positions

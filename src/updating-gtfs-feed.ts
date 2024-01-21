@@ -1,13 +1,5 @@
 import fs from "fs";
-import {
-    closeDb,
-    getRoutes,
-    getShapesAsGeoJSON,
-    getStops,
-    getStoptimes,
-    getTrips,
-    openDb as openDb_internal,
-} from "gtfs";
+import {getStops, getStoptimes, getTrips, openDb as openDb_internal} from "gtfs";
 import axios from "axios";
 import {Shape} from "./shape";
 import BetterSqlite3, {Database} from "better-sqlite3";
@@ -230,9 +222,6 @@ export class UpdatingGtfsFeed {
         // @ts-ignore
         return row.departure_time;
     }
-    getShapesAsGeoJSON(query: Record<string, any>) {
-        return getShapesAsGeoJSON(query, {db: this.db});
-    }
     getShapeByTripID(trip_id: string): Shape {
         if (this.shapes_cache[trip_id]) {
             return this.shapes_cache[trip_id];
@@ -264,10 +253,6 @@ export class UpdatingGtfsFeed {
         return this.shapes_cache[trip_id];
     }
 
-    getRoutes(query: Record<string, any>, fields: Array<string>) {
-        return getRoutes(query, fields, undefined, {db: this.db});
-    }
-
     getStops(query: Record<string, any>, fields: Array<string>) {
         return getStops(query, fields, undefined, {db: this.db});
     }
@@ -284,18 +269,6 @@ export class UpdatingGtfsFeed {
 
     getTrips(query: Record<string, any>, fields: Array<string>) {
         return getTrips(query, fields, undefined, {db: this.db});
-    }
-
-    getTrip(trip_id: string, fields: Array<string>): object {
-        const fieldsString = fields.join(", ");
-        const query = this.db.prepare(`SELECT ${fieldsString} FROM trips WHERE trip_id = @trip_id`);
-        const result = query.get({trip_id: trip_id});
-        console.log("get trip result", result);
-        return result as object;
-    }
-
-    close() {
-        closeDb(this.db);
     }
 
     date_contains(date: Date): boolean {
