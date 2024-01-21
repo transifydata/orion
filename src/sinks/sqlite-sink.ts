@@ -6,15 +6,13 @@ import { Agency } from "../index";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import Long from "long";
 import { UpdatingGtfsFeed } from "../updating-gtfs-feed";
+import {
+  calculateDistanceAlongRoute,
+  DistanceAlongRoute,
+  getClosestScheduledStopTime,
+} from "../get-scheduled-vehicle-locations";
 import TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
 import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
-import {
-  getClosestScheduledStopTime,
-  getClosestStopTimes,
-  processClosestStopTimes,
-} from "../get-scheduled-vehicle-locations";
-import assert from "assert";
-import { Point } from "@turf/turf";
 
 const databasePath =
   (process.env["ORION_DATABASE_PATH"] || ".") + "/orion-database.db";
@@ -111,51 +109,6 @@ export async function fixData(
   }
 }
 
-export interface DistanceAlongRoute {
-  scheduledDistanceAlongRoute: number;
-  actualDistanceAlongRoute: number;
-}
-
-export function calculateDistanceAlongRoute(
-  currentTime: number,
-  feed: UpdatingGtfsFeed,
-  vp: VehiclePosition,
-): DistanceAlongRoute {
-  const busDate = new Date(currentTime - 1000 * (vp.secsSinceReport || 0));
-
-  const scheduledLocation = getClosestStopTimes(feed.db, busDate, vp.tripId);
-  if (scheduledLocation.length === 1) {
-    console.warn(
-      "Bus is nearly ending it's journey! Skipping.",
-      currentTime,
-      vp.tripId,
-      scheduledLocation,
-    );
-    return { scheduledDistanceAlongRoute: 0, actualDistanceAlongRoute: 0 };
-  } else if (scheduledLocation.length == 0) {
-    // If we can't find a scheduled location, that means the trip has already ended. This bus is late and still not finished.
-    // TODO: what to do?
-    return { scheduledDistanceAlongRoute: -1, actualDistanceAlongRoute: -1 };
-  } else {
-    assert(scheduledLocation.length == 2);
-  }
-  const interpolated = processClosestStopTimes(
-    feed,
-    scheduledLocation,
-    busDate,
-  );
-
-  const scheduledDistanceAlongRoute = interpolated[0].distanceAlongRoute;
-
-  const locationPoint: Point = {
-    type: "Point",
-    coordinates: [vp.lon as number, vp.lat as number],
-  };
-  const shape = feed.getShapeByTripID(vp.tripId);
-  const actualDistanceAlongRoute = shape.project(locationPoint) * shape.length;
-
-  return { scheduledDistanceAlongRoute, actualDistanceAlongRoute };
-}
 export async function writeToSink(
   gtfs: UpdatingGtfsFeed,
   agency: Agency,
@@ -170,7 +123,12 @@ export async function writeToSink(
 
   const dataWithDistance: Array<VehiclePosition & DistanceAlongRoute> =
     data.map((x) => {
-      const distances = calculateDistanceAlongRoute(currentTime, gtfs, x);
+      let distances: DistanceAlongRoute = { scheduledDistanceAlongRoute: -1, actualDistanceAlongRoute: -1 };
+      try {
+        distances = calculateDistanceAlongRoute(currentTime, gtfs, x);
+      } catch (e) {
+        console.error("Error calculating distance along route", e);
+      }
       return { ...x, ...distances };
     });
 

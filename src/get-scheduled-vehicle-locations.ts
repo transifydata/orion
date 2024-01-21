@@ -2,10 +2,12 @@ import moment from "moment-timezone";
 import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
 import BetterSqlite3 from "better-sqlite3";
 import {
+  VehiclePosition,
   VehiclePositionOutput,
 } from "./providers/gtfs-realtime";
 import assert from "assert";
 import { getScheduledVehicleLocationsSQL } from "./sql-vehicle-locations";
+import { Point } from "@turf/turf";
 
 export function HHMMSSToSeconds(time) {
   // Split the time string into hours, minutes, and seconds
@@ -133,20 +135,20 @@ export async function testArrivalDepartureFits() {
   // console.log("ScheduledResults", scheduledResults)
 }
 export async function testScheduledVehiclesLocation() {
-  const date = new Date(2024, 0, 19, 13, 20, 0);
-  const feed = await UpdatingGtfsFeed.openWait("brampton", date.getTime());
-
-  for (let i = 0; i < 1; i++) {
-    const stopTimes = getClosestStopTimes(
-      feed.db,
-      date,
-      "23818296-240108-MULTI-Weekday-03",
-    );
-    console.log("StopTimes!", stopTimes);
-    assert(stopTimes.length == 2);
-    const interpolated = processClosestStopTimes(feed, stopTimes, date);
-    console.log("Interpolated", interpolated);
-  }
+  // const date = new Date(2024, 0, 19, 13, 20, 0);
+  // const feed = await UpdatingGtfsFeed.openWait("brampton", date.getTime());
+  //
+  // for (let i = 0; i < 1; i++) {
+  //   const stopTimes = getClosestStopTimes(
+  //     feed.db,
+  //     date,
+  //     "23818296-240108-MULTI-Weekday-03",
+  //   );
+  //   console.log("StopTimes!", stopTimes);
+  //   assert(stopTimes.length == 2);
+  //   const interpolated = processClosestStopTimes(feed, stopTimes, date);
+  //   console.log("Interpolated", interpolated);
+  // }
 }
 
 export interface StopTimesWithLocation extends ClosestStopTime {
@@ -380,4 +382,53 @@ export async function getScheduledVehicleLocations(
     throw new Error("Trip IDs are not unique");
   }
   return positions;
+}
+
+export interface DistanceAlongRoute {
+  scheduledDistanceAlongRoute: number;
+  actualDistanceAlongRoute: number;
+}
+
+export function calculateDistanceAlongRoute(
+  currentTime: number,
+  feed: UpdatingGtfsFeed,
+  vp: VehiclePosition,
+): DistanceAlongRoute {
+  const busDate = new Date(currentTime - 1000 * (vp.secsSinceReport || 0));
+
+  const shape = feed.getShapeByTripID(vp.tripId);
+
+  const scheduledLocation = getClosestStopTimes(feed.db, busDate, vp.tripId);
+  let scheduledDistanceAlongRoute = -1;
+
+  if (scheduledLocation.length === 1) {
+    console.warn(
+      "Bus is nearly ending it's journey! Skipping.",
+      currentTime,
+      vp.tripId,
+      scheduledLocation,
+    );
+    return { scheduledDistanceAlongRoute: 0, actualDistanceAlongRoute: 0 };
+  } else if (scheduledLocation.length == 0) {
+    // If we can't find a scheduled location, that means the trip has already ended. This bus is late and still not finished.
+    // scheduledDistance is at the end, hence equal to the length of the shape
+    scheduledDistanceAlongRoute = shape.length;
+  } else {
+    assert(scheduledLocation.length == 2);
+    const interpolated = processClosestStopTimes(
+      feed,
+      scheduledLocation,
+      busDate,
+    );
+
+    scheduledDistanceAlongRoute = interpolated[0].distanceAlongRoute;
+  }
+
+  const locationPoint: Point = {
+    type: "Point",
+    coordinates: [vp.lon as number, vp.lat as number],
+  };
+  const actualDistanceAlongRoute = shape.project(locationPoint) * shape.length;
+
+  return { scheduledDistanceAlongRoute, actualDistanceAlongRoute };
 }

@@ -39,7 +39,9 @@ export class Shape {
     const nearest_point = nearestPointOnLine(this.inner, point, {
       units: "meters",
     });
-    assert(nearest_point.properties.location !== undefined);
+    if(nearest_point.properties.location === undefined) {
+      throw Error("nearest_point.properties.location is undefined")
+    }
     return nearest_point.properties.location / this.length;
   }
 }

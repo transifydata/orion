@@ -136,8 +136,6 @@ ORDER BY trip_id, source;
     timeOfDayAfter: timeOfDayAfter,
   };
 
-  console.log("Query params", queryParams);
-
   // @ts-ignore
   const results: ClosestStopTime[] = statement.all(queryParams);
 
