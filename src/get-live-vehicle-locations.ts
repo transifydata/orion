@@ -4,6 +4,7 @@ import {transit_realtime} from "gtfs-realtime-bindings";
 import {openDb} from "./sinks/sqlite-sink";
 import {sqlVehicleLocations} from "./sql-vehicle-locations";
 import {Point} from "@turf/turf";
+import {isDefined} from "./get-scheduled-vehicle-locations";
 
 type TripUpdate = transit_realtime.TripUpdate;
 
@@ -46,6 +47,21 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
         if (!tripAttr) {
             console.warn("No trip attr for", r.tripId);
         }
+
+        const scheduledDistanceAlongRoute = r.scheduledDistanceAlongRoute;
+        const actualDistanceAlongRoute = r.actualDistanceAlongRoute;
+
+        const AVERAGE_BUS_SPEED = 40 * 1000 / 3600; // 40 km/h * 1000 m/km / 3600 s/h (get m/s)
+        if (isDefined(scheduledDistanceAlongRoute) && isDefined(actualDistanceAlongRoute)) {
+            const distanceDelta = scheduledDistanceAlongRoute - actualDistanceAlongRoute;
+
+            // Seconds
+            const timeDelta = distanceDelta / AVERAGE_BUS_SPEED;
+
+            r.delay = timeDelta;
+        }
+
+
         const vp = validateVehiclePosition({
             ...r,
             source: "live",
@@ -61,7 +77,7 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
             coordinates: [vp.lon as number, vp.lat as number],
         };
         const shape = feed.getShapeByTripID(vp.tripId);
-        vp.distanceAlongRoute = shape.project(locationPoint);
+        vp.distanceAlongRoute = shape.project(locationPoint) * shape.length;
         return vp;
     });
 }

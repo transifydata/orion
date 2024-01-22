@@ -86,7 +86,7 @@ function getTimeOfDayForGtfs(time: Date): number {
     return timeOfDaySecs;
 }
 
-function isDefined(x: any): boolean {
+export function isDefined(x: any): boolean {
     return x !== null && x !== undefined;
 }
 
