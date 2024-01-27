@@ -85,6 +85,15 @@ async function downloadFromGtfsService(agency: string, time: number, filepath: s
     console.log("GTFS download completed successfully.");
 }
 
+function asNumber(x: any): number {
+    if (typeof x === "number") {
+        return x;
+    } else if (typeof x === "string") {
+        return parseFloat(x);
+    } else {
+        throw new Error(`asInt: invalid type ${x} ${typeof x}`);
+    }
+}
 export class GtfsList {
     private inner: Array<UpdatingGtfsFeed> = [];
 
@@ -243,7 +252,7 @@ export class UpdatingGtfsFeed {
         }
 
         for (const row of rows) {
-            coordinates.push([row.shape_pt_lon, row.shape_pt_lat]);
+            coordinates.push([asNumber(row.shape_pt_lon), asNumber(row.shape_pt_lat)]);
         }
 
         this.shapes_cache[trip_id] = new Shape({

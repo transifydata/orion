@@ -272,6 +272,7 @@ export async function getScheduledVehicleLocations(agency: string, time: number)
     assert(gtfsDatabase);
 
     const closestStopTimes = getClosestStopTimes(gtfsDatabase, new Date(time), undefined);
+    console.log("Found", closestStopTimes.length, "closest stop times")
     const stopTimesWithLocation = processClosestStopTimes(feed, closestStopTimes, new Date(time));
 
     const positions = stopTimesWithLocation.map(st => {
@@ -317,11 +318,11 @@ export function calculateDistanceAlongRoute(
         scheduledDistanceAlongRoute = interpolated[0].distanceAlongRoute;
     }
 
-    const locationPoint: Point = {
+    const actualLocation: Point = {
         type: "Point",
         coordinates: [vp.lon as number, vp.lat as number],
     };
-    const actualDistanceAlongRoute = shape.project(locationPoint) * shape.length;
+    const actualDistanceAlongRoute = shape.project(actualLocation) * shape.length;
 
     return {scheduledDistanceAlongRoute, actualDistanceAlongRoute};
 }

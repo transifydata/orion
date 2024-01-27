@@ -22,7 +22,7 @@ export class Shape {
 
         const interp_distance = this.length * ratio;
 
-        const [x, y] = along(this.inner, interp_distance).geometry.coordinates;
+        const [x, y] = along(this.inner, interp_distance, {units: "meters"}).geometry.coordinates;
         const lon = y;
         const lat = x;
         return [lon, lat];
@@ -40,5 +40,9 @@ export class Shape {
             throw Error("nearest_point.properties.location is undefined");
         }
         return nearest_point.properties.location / this.length;
+    }
+
+    geojson(): LineString {
+        return this.inner;
     }
 }

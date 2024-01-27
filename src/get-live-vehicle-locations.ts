@@ -26,6 +26,7 @@ export function validateVehiclePosition(vehiclePosition: VehiclePositionOutput):
         server_time: vehiclePosition.server_time,
         source: vehiclePosition.source,
         terminalDepartureTime: vehiclePosition.terminalDepartureTime,
+        calculatedDelay: vehiclePosition.calculatedDelay,
         distanceAlongRoute: vehiclePosition.distanceAlongRoute,
     };
 }
@@ -51,16 +52,16 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
         const scheduledDistanceAlongRoute = r.scheduledDistanceAlongRoute;
         const actualDistanceAlongRoute = r.actualDistanceAlongRoute;
 
-        const AVERAGE_BUS_SPEED = 40 * 1000 / 3600; // 40 km/h * 1000 m/km / 3600 s/h (get m/s)
+        const AVG_BUS_SPEED_METERS_PER_SEC = 35 * 1000 / 3600; // 35 km/h * 1000 m/km / 3600 s/h (get m/s)
         if (isDefined(scheduledDistanceAlongRoute) && isDefined(actualDistanceAlongRoute)) {
             const distanceDelta = scheduledDistanceAlongRoute - actualDistanceAlongRoute;
 
-            // Seconds
-            const timeDelta = distanceDelta / AVERAGE_BUS_SPEED;
+            // time delta in seconds
+            const timeDelta = distanceDelta / AVG_BUS_SPEED_METERS_PER_SEC;
 
-            r.delay = timeDelta;
+            // If the bus is ahead of schedule, the time delta will be negative
+            r.calculatedDelay = timeDelta;
         }
-
 
         const vp = validateVehiclePosition({
             ...r,
@@ -69,15 +70,9 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
             lon: parseFloat(r.lon),
             terminalDepartureTime: feed.getTerminalDepartureTime(r.tripId),
             trip_headsign: tripAttr.trip_headsign,
-            distanceAlongRoute: 0,
+            distanceAlongRoute: actualDistanceAlongRoute
         });
 
-        const locationPoint: Point = {
-            type: "Point",
-            coordinates: [vp.lon as number, vp.lat as number],
-        };
-        const shape = feed.getShapeByTripID(vp.tripId);
-        vp.distanceAlongRoute = shape.project(locationPoint) * shape.length;
         return vp;
     });
 }
