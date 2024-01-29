@@ -27,7 +27,7 @@ export function secondsToHHMMSS(seconds) {
 
 export function unixTimestampToSecondsOfDay(unixTimestamp, timezone) {
     // timezone is from IANA timezone database, like "America/Toronto"
-    const torontoTime = moment.unix(unixTimestamp).tz(timezone);
+    const torontoTime = moment.unix(unixTimestamp / 1000).tz(timezone);
     return torontoTime.diff(torontoTime.clone().startOf("day"), "seconds");
 }
 
@@ -76,7 +76,7 @@ export interface ClosestStopTime {
 function getTimeOfDayForGtfs(time: Date): number {
     // Returns the time of day in seconds
     // Handles special case: GTFS feeds go past 24 hours, so we want to do the same for seconds conversion
-    let timeOfDaySecs = unixTimestampToSecondsOfDay(time.getTime() / 1000, "America/Toronto");
+    let timeOfDaySecs = unixTimestampToSecondsOfDay(time.getTime(), "America/Toronto");
 
     // Some brampton buses run past midnight (latest 3:08 AM), so we set 3:15 AM as the cutoff for the next day
     if (timeOfDaySecs <= 3.25 * 3600) {

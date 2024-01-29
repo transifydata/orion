@@ -3,6 +3,7 @@
 import {Database} from "sqlite";
 import BetterSqlite3 from "better-sqlite3";
 import {ClosestStopTime} from "./get-scheduled-vehicle-locations";
+import moment from "moment-timezone";
 
 export async function sqlVehicleLocations(db: Database, time: number, agency: string) {
     const startTimeBuffer = time - 5 * 60 * 1000;
@@ -43,8 +44,12 @@ WITH latest_vehicle_positions AS
     );
 }
 
-function getDayOfWeekColumnName(date: Date): string {
-    const dayOfWeek = date.getDay();
+function getDayOfWeekColumnName(timestamp: number, timezone: string): string {
+    // Convert Unix timestamp to Moment.js object with the specified timezone
+    const dateInTimezone = moment.unix(timestamp / 1000).tz(timezone);
+
+    // Get the day of the week (0-6) and map it to the corresponding column name
+    const dayOfWeek = dateInTimezone.day();
     const dayColumnNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     return dayColumnNames[dayOfWeek];
 }
@@ -80,7 +85,8 @@ WITH eligible_trips AS (
   FROM trips t
     LEFT JOIN calendar c ON t.service_id = c.service_id
   WHERE ((c.${getDayOfWeekColumnName(
-      time,
+      time.getTime(),
+      "America/Toronto"
   )} = 1 AND c.start_date <= @date AND c.end_date >= @date) OR c.service_id IS NULL) AND
   (${tripFilter})
 ),
