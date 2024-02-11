@@ -1,57 +1,51 @@
 import {Agency} from "../index.js";
 
-import request from 'request'
-import axios from 'axios'
+import request from "request";
+import axios from "axios";
 
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 
 export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
     const url = config.tripUpdatesUrl;
 
-    if (!url) throw Error("No trip updates URL provided")
+    if (!url) throw Error("No trip updates URL provided");
 
-    console.log('fetching trip updates from ' + url);
+    console.log("fetching trip updates from " + url);
 
-    const response = await axios.get(url, { responseType: "arraybuffer" });
+    const response = await axios.get(url, {responseType: "arraybuffer"});
 
     const feed = decodeFeedMessage(response.data);
 
     if (!feed) {
-        return []
+        return [];
     }
-
-
 
     return feed.entity.map(item => {
         if (!item.tripUpdate) {
-            throw new Error("Unexpected FeedEntity in TripUpdates - " + JSON.stringify(item))
+            throw new Error("Unexpected FeedEntity in TripUpdates - " + JSON.stringify(item));
         }
         return new GtfsRealtimeBindings.transit_realtime.TripUpdate(item.tripUpdate);
-    })
-
-
+    });
 }
-
 
 function decodeFeedMessage(body) {
     return GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(body);
 }
 
 function isVehicle(gtfsVehiclePosition) {
-    return gtfsVehiclePosition
-        && gtfsVehiclePosition.trip
-        && gtfsVehiclePosition.position
-        && gtfsVehiclePosition.vehicle;
+    return (
+        gtfsVehiclePosition && gtfsVehiclePosition.trip && gtfsVehiclePosition.position && gtfsVehiclePosition.vehicle
+    );
 }
 
 export function getVehicles(config) {
     const url = config.gtfs_realtime_url;
-    console.log('fetching vehicles from ' + url);
+    console.log("fetching vehicles from " + url);
 
     const requestSettings = {
-        method: 'GET',
+        method: "GET",
         url: url,
-        encoding: null
+        encoding: null,
     };
 
     return new Promise((resolve, reject) => {
@@ -61,8 +55,8 @@ export function getVehicles(config) {
             } else if (response.statusCode === 200) {
                 let feed: any = decodeFeedMessage(body);
 
-                if(feed === null) {
-                    resolve([])
+                if (feed === null) {
+                    resolve([]);
                     return;
                 }
 
@@ -71,11 +65,7 @@ export function getVehicles(config) {
                 feed.entity.forEach(function (entity) {
                     const gtfsVehiclePosition = entity.vehicle;
                     if (isVehicle(gtfsVehiclePosition)) {
-                        vehicles.push(makeVehicle(
-                            gtfsVehiclePosition,
-                            feedTimestamp,
-                            config.gtfs_realtime_vehicle_id,
-                        ));
+                        vehicles.push(makeVehicle(gtfsVehiclePosition, feedTimestamp, config.gtfs_realtime_vehicle_id));
                     }
                 });
                 resolve(vehicles);
@@ -85,7 +75,6 @@ export function getVehicles(config) {
         });
     });
 }
-
 
 export type Value = number | string;
 
@@ -105,13 +94,13 @@ export interface VehiclePosition {
 
 export interface VehiclePositionOutput extends VehiclePosition {
     delay?: number;
+    calculatedDelay?: number;
     trip_headsign: string;
     server_time: number;
     source: string;
     terminalDepartureTime: string;
+    distanceAlongRoute: number;
 }
-
-
 
 function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): VehiclePosition {
     // GTFS-Realtime API returns vehicles like this:
@@ -127,15 +116,7 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
     //   timestamp: 1571000916,
     //   stopId: '11507',
     //   vehicle: VehicleDescriptor { id: '230', label: 'Yellow Line to City Ctr/Milw' } }
-    const {
-        trip,
-        position,
-        stopId,
-        vehicle,
-        timestamp,
-        currentStopSequence,
-        currentStatus,
-    } = gtfsVehiclePosition;
+    const {trip, position, stopId, vehicle, timestamp, currentStopSequence, currentStatus} = gtfsVehiclePosition;
 
     const getSecsSinceReport = (feedTimestamp, timestamp) => {
         // Timestamps might be in milliseconds if derived from date.now or from
@@ -150,7 +131,7 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
             timestamp = Math.round(timestamp / 1000);
         }
         return Math.max(0, feedTimestamp - timestamp);
-    }
+    };
 
     const orionVehicle = {
         rid: trip.routeId,
@@ -166,13 +147,12 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
         label: undefined,
     };
 
-    if (stopId != '') {
+    if (stopId != "") {
         orionVehicle.stopId = stopId;
     }
-    if (vehicle.label != '') {
+    if (vehicle.label != "") {
         orionVehicle.label = vehicle.label;
     }
 
     return orionVehicle;
 }
-

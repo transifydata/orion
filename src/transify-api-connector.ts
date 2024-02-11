@@ -1,7 +1,7 @@
 import {Feature, FeatureCollection, Geometry} from "@turf/helpers";
 import axios from "axios";
 
-import {Route as JSRoute, Stop} from './gtfs-parser';
+import {Route as JSRoute, Stop} from "./gtfs-parser";
 interface Agency {
     agency_id: string;
     agency_name: string;
@@ -25,24 +25,27 @@ interface Route {
     route_url?: string | null;
 }
 
-export function convertApiRouteToRoute(feature: Feature<Geometry, Route>, stops: FeatureCollection<Geometry, Stop>): JSRoute {
-  return {
-    id: feature.properties.route_id,
-    short_name: feature.properties.route_short_name,
-    long_name: feature.properties.route_long_name,
-    shape: {
-      type: "Feature",
-      geometry: feature.geometry,
-      properties: {}
-    },
-    stops
-  }
+export function convertApiRouteToRoute(
+    feature: Feature<Geometry, Route>,
+    stops: FeatureCollection<Geometry, Stop>,
+): JSRoute {
+    return {
+        id: feature.properties.route_id,
+        short_name: feature.properties.route_short_name,
+        long_name: feature.properties.route_long_name,
+        shape: {
+            type: "Feature",
+            geometry: feature.geometry,
+            properties: {},
+        },
+        stops,
+    };
 }
 
 export function formatDate(date: Date) {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
 }
@@ -51,17 +54,14 @@ export function getCurrentFormattedDate() {
     return formatDate(currentDate);
 }
 export async function downloadRoutesFromTransifyApi(agency: string): Promise<FeatureCollection<Geometry, Route>> {
-    const start = performance.now();
     const response = await axios({
-        method: 'get',
+        method: "get",
         url: `https://staging-api.transify.ca/api/routes?agency=${agency}&date=${getCurrentFormattedDate()}`,
     });
 
     if (response.status !== 200) {
-        throw new Error("Could not download GTFS" + response.status + response.statusText)
+        throw new Error("Could not download GTFS" + response.status + response.statusText);
     }
 
-    const end = performance.now();
-    console.log(`Downloaded routes in ${end - start}ms`);
     return response.data;
 }
