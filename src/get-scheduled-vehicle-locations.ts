@@ -76,9 +76,11 @@ export interface ClosestStopTime {
 function getTimeOfDayForGtfs(time: Date): number {
     // Returns the time of day in seconds
     // Handles special case: GTFS feeds go past 24 hours, so we want to do the same for seconds conversion
+    // TODO: use the agency's timezone instead of hardcoding "America/Toronto"
     let timeOfDaySecs = unixTimestampToSecondsOfDay(time.getTime(), "America/Toronto");
 
     // Some brampton buses run past midnight (latest 3:08 AM), so we set 3:15 AM as the cutoff for the next day
+    // TODO: this doesn't work for GO Transit as they have buses that run at both 2:00 and 26:00.
     if (timeOfDaySecs <= 3.25 * 3600) {
         timeOfDaySecs += 24 * 3600;
     }
@@ -93,6 +95,10 @@ export function isDefined(x: any): boolean {
 export function getClosestStopTimes(db: BetterSqlite3.Database, time: Date, tripFilter?: string): ClosestStopTime[] {
     const timeOfDaySecs = getTimeOfDayForGtfs(time);
     const timeOfDay = secondsToHHMMSS(timeOfDaySecs);
+
+    // Limit the search to 7 minutes before and after the current time
+    // This makes the search faster as we don't have to search through the entire day for the appropriate stop
+    // TODO: remove this approximation and make a more efficient query
     const timeOfDayBefore = secondsToHHMMSS(timeOfDaySecs - 7 * 60);
     const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 7 * 60);
     return getScheduledVehicleLocationsSQL(time, db, timeOfDay, timeOfDayBefore, timeOfDayAfter, tripFilter);
@@ -140,7 +146,11 @@ export function processClosestStopTimes(
         // Interpolate the current location based on time
         const timeDiff = HHMMSSToSeconds(afterStopTime.arrival_time) - HHMMSSToSeconds(beforeStopTime.departure_time);
         const currentTimeDiff = timeOfDaySecs - HHMMSSToSeconds(beforeStopTime.departure_time);
-        const interpolationFactor = currentTimeDiff / timeDiff;
+
+        let interpolationFactor = 0;
+        if (timeDiff !== 0) {
+            interpolationFactor = currentTimeDiff / timeDiff;
+        }
 
         const currentLocation: [number, number] = [
             beforeStopLocation[0] + interpolationFactor * (afterStopLocation[0] - beforeStopLocation[0]),
@@ -176,7 +186,11 @@ export function processClosestStopTimes(
         // Interpolate the current location based on time
         const timeDiff = HHMMSSToSeconds(afterStopTime.arrival_time) - HHMMSSToSeconds(beforeStopTime.departure_time);
         const currentTimeDiff = timeOfDaySecs - HHMMSSToSeconds(beforeStopTime.departure_time);
-        const interpolationFactor = currentTimeDiff / timeDiff;
+
+        let interpolationFactor = 0;
+        if (timeDiff !== 0) {
+            interpolationFactor = currentTimeDiff / timeDiff;
+        }
 
         const currentShapeDistTravelled =
             beforeShapeDistTravelled + interpolationFactor * (afterShapeDistTravelled - beforeShapeDistTravelled);

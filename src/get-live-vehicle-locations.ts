@@ -52,6 +52,10 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
         const scheduledDistanceAlongRoute = r.scheduledDistanceAlongRoute;
         const actualDistanceAlongRoute = r.actualDistanceAlongRoute;
 
+
+        // We want to show the bus delay in seconds
+        // We can calculate the delay by comparing the scheduled distance along the route with the actual distance along the route
+        // Then use the average bus speed (estimated at 35 km/hr) to calculate the delay in seconds
         const AVG_BUS_SPEED_METERS_PER_SEC = 35 * 1000 / 3600; // 35 km/h * 1000 m/km / 3600 s/h (get m/s)
         if (isDefined(scheduledDistanceAlongRoute) && isDefined(actualDistanceAlongRoute)) {
             const distanceDelta = scheduledDistanceAlongRoute - actualDistanceAlongRoute;
