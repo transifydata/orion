@@ -4,7 +4,7 @@ import {VehiclePosition, VehiclePositionOutput} from "./providers/gtfs-realtime"
 import assert from "assert";
 import {getScheduledVehicleLocationsSQL} from "./sql-vehicle-locations";
 import {Point} from "@turf/turf";
-import {TimeTz} from "./Date";
+import {TimeTz, secondsToHHMMSS} from "./Date";
 
 export function HHMMSSToSeconds(time) {
     // Split the time string into hours, minutes, and seconds
@@ -12,19 +12,6 @@ export function HHMMSSToSeconds(time) {
 
     return parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds);
 }
-
-export function secondsToHHMMSS(secondsOfDay: number): string {
-    const hours = Math.floor(secondsOfDay / 3600);
-    const minutes = Math.floor(secondsOfDay / 60) % 60;
-    const seconds2 = secondsOfDay % 60;
-
-    const formattedHours = Math.max(hours, 0).toString().padStart(2, "0");
-    const formattedMinutes = Math.max(minutes, 0).toString().padStart(2, "0");
-    const formattedSeconds = Math.max(seconds2, 0).toString().padStart(2, "0");
-
-    return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
-}
-
 
 export function getClosestScheduledStopTime(
     gtfs: UpdatingGtfsFeed,

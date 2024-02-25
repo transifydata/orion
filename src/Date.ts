@@ -36,9 +36,9 @@ export function secondsToHHMMSS(secondsOfDay: number): string {
     const minutes = Math.floor(secondsOfDay / 60) % 60;
     const seconds2 = secondsOfDay % 60;
 
-    const formattedHours = hours.toString().padStart(2, "0");
-    const formattedMinutes = minutes.toString().padStart(2, "0");
-    const formattedSeconds = seconds2.toString().padStart(2, "0");
+    const formattedHours = Math.max(hours, 0).toString().padStart(2, "0");
+    const formattedMinutes = Math.max(minutes, 0).toString().padStart(2, "0");
+    const formattedSeconds = Math.max(seconds2, 0).toString().padStart(2, "0");
 
     return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
 }
