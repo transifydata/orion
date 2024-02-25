@@ -38,7 +38,7 @@ export async function migrateDbs() {
     console.log("Finished migrations");
 }
 
-async function writeValue(db: Database, value: VehiclePosition, time: number, server_date: string, agency: Agency) {
+async function writeValue(db: Database, value: VehiclePosition, time: number, agency: Agency) {
     const rowObject = {};
     for (const key in value) {
         let v: any;
@@ -50,8 +50,12 @@ async function writeValue(db: Database, value: VehiclePosition, time: number, se
         rowObject[":" + key] = v;
     }
 
+    const serverDate = new Date().toISOString().slice(0, 10);
+
     rowObject[":agency_id"] = agency.id;
-    rowObject[":server_date"] = server_date;
+
+    // server_date is unused column right now
+    rowObject[":server_date"] = serverDate;
     rowObject[":server_time"] = time;
 
     const column_expr = Object.keys(rowObject).join(",");
@@ -101,26 +105,46 @@ export async function fixData(gtfs: UpdatingGtfsFeed, agency_id: string, data: V
 export async function writeToSink(
     gtfs: UpdatingGtfsFeed,
     agency: Agency,
-    currentTime: number,
+    unixTime: number,
     data: VehiclePosition[],
 ) {
     const db = await openDb();
 
     data.forEach(v => fixData(gtfs, agency.id, v));
 
-    const currentDate = new Date().toISOString().slice(0, 10);
-
-    const dataWithDistance: Array<VehiclePosition & DistanceAlongRoute> = data.map(x => {
+    const dataWithDistance: Array<VehiclePosition & DistanceAlongRoute> = data.map(vp => {
         let distances: DistanceAlongRoute = {scheduledDistanceAlongRoute: -1, actualDistanceAlongRoute: -1};
         try {
-            distances = calculateDistanceAlongRoute(currentTime, gtfs, x);
+            distances = calculateDistanceAlongRoute(unixTime, gtfs, vp);
         } catch (e) {
             console.error("Error calculating distance along route", e);
         }
-        return {...x, ...distances};
+        return {...vp, ...distances};
     });
 
-    await Promise.all(dataWithDistance.map(v => writeValue(db, v, currentTime, currentDate, agency)));
+    await Promise.all(dataWithDistance.map(v => writeValue(db, v, unixTime, agency)));
+}
+
+export async function testing() {
+    const vehiclePosition: VehiclePosition = {
+        rid: "4-343",
+        vid: "2079",
+        lat: 43.6735000,
+        lon: -79.7908100,
+        heading: 315.0,
+        tripId: "23756996-240108-MULTI-Saturday-01",
+        stopIndex: 16,
+        status: 2,
+        secsSinceReport: 74,
+        stopId: "00015670",
+        label: "2079",
+    };
+
+    const feed = await UpdatingGtfsFeed.getFeed("brampton", Date.now());
+
+    console.log("LENGTH", feed.getShapeByTripID('23834827-240108-MULTI-Holiday1-01').length);
+    // const res = calculateDistanceAlongRoute(1707615780105, feed, vehiclePosition);
+    // console.log(res)
 }
 
 function convertToSQL(

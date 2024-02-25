@@ -58,16 +58,16 @@ async function saveVehicles() {
 
             if (!providerCode) throw new Error("Invalid provider name");
 
-            const currentTime = Date.now();
+            const unixTime = Date.now();
 
             if (agencyInfo.tripUpdatesUrl !== undefined) {
                 await providerCode.getTripUpdates(agencyInfo).then(updates => {
-                    return writeTripUpdatesToSink(db, agencyInfo, currentTime, updates);
+                    return writeTripUpdatesToSink(db, agencyInfo, unixTime, updates);
                 });
             }
             await providerCode.getVehicles(agencyInfo).then(vehicles => {
-                return writeToSink(db, agencyInfo, currentTime, vehicles).then(() => {
-                    writeToS3(s3Bucket, agencyInfo.id, currentTime, vehicles);
+                return writeToSink(db, agencyInfo, unixTime, vehicles).then(() => {
+                    writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles);
                 });
             });
         } catch (e) {

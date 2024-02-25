@@ -1,10 +1,10 @@
-import moment from "moment-timezone";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import BetterSqlite3 from "better-sqlite3";
 import {VehiclePosition, VehiclePositionOutput} from "./providers/gtfs-realtime";
 import assert from "assert";
 import {getScheduledVehicleLocationsSQL} from "./sql-vehicle-locations";
 import {Point} from "@turf/turf";
+import {TimeTz} from "./Date";
 
 export function HHMMSSToSeconds(time) {
     // Split the time string into hours, minutes, and seconds
@@ -13,23 +13,18 @@ export function HHMMSSToSeconds(time) {
     return parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds);
 }
 
-export function secondsToHHMMSS(seconds) {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor(seconds / 60) % 60;
-    const seconds2 = seconds % 60;
+export function secondsToHHMMSS(secondsOfDay: number): string {
+    const hours = Math.floor(secondsOfDay / 3600);
+    const minutes = Math.floor(secondsOfDay / 60) % 60;
+    const seconds2 = secondsOfDay % 60;
 
-    const formattedHours = hours.toString().padStart(2, "0");
-    const formattedMinutes = minutes.toString().padStart(2, "0");
-    const formattedSeconds = seconds2.toString().padStart(2, "0");
+    const formattedHours = Math.max(hours, 0).toString().padStart(2, "0");
+    const formattedMinutes = Math.max(minutes, 0).toString().padStart(2, "0");
+    const formattedSeconds = Math.max(seconds2, 0).toString().padStart(2, "0");
 
     return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
 }
 
-export function unixTimestampToSecondsOfDay(unixTimestamp, timezone) {
-    // timezone is from IANA timezone database, like "America/Toronto"
-    const torontoTime = moment.unix(unixTimestamp / 1000).tz(timezone);
-    return torontoTime.diff(torontoTime.clone().startOf("day"), "seconds");
-}
 
 export function getClosestScheduledStopTime(
     gtfs: UpdatingGtfsFeed,
@@ -41,20 +36,20 @@ export function getClosestScheduledStopTime(
     // Iterate through all stops and find the *next* stop that the bus will arrive to.
 
     const stop_times = gtfs.getStoptimes({trip_id: tripId}, []);
-    const timeOfDay = unixTimestampToSecondsOfDay(timestamp, "America/Toronto");
+    const timeOfdaySecs = new TimeTz(timestamp, "America/Toronto").secondsOfDay();
 
     let lastDelay = 0;
     for (const st of stop_times) {
         const stopDelay = delays[st.stop_id];
         lastDelay = stopDelay ? stopDelay : lastDelay;
-        if (HHMMSSToSeconds(st.departure_time) + lastDelay >= timeOfDay) {
+        if (HHMMSSToSeconds(st.departure_time) + lastDelay >= timeOfdaySecs) {
             // console.log(`Found stop time for trip ${gtfs.agency} ${tripId}`)
             return st;
         }
     }
 
     console.warn(
-        `WARNING: Couldn't find stop time for ${gtfs.agency} ${tripId} with ${timestamp} ${timeOfDay}. Trip probably already ended?`,
+        `WARNING: Couldn't find stop time for ${gtfs.agency} ${tripId} with ${timestamp} ${timeOfdaySecs}. Trip probably already ended?`,
     );
     return undefined;
 }
@@ -73,35 +68,36 @@ export interface ClosestStopTime {
     source: "0before" | "1after";
 }
 
-function getTimeOfDayForGtfs(time: Date): number {
-    // Returns the time of day in seconds
-    // Handles special case: GTFS feeds go past 24 hours, so we want to do the same for seconds conversion
-    // TODO: use the agency's timezone instead of hardcoding "America/Toronto"
-    let timeOfDaySecs = unixTimestampToSecondsOfDay(time.getTime(), "America/Toronto");
-
-    // Some brampton buses run past midnight (latest 3:08 AM), so we set 3:15 AM as the cutoff for the next day
-    // TODO: this doesn't work for GO Transit as they have buses that run at both 2:00 and 26:00.
-    if (timeOfDaySecs <= 3.25 * 3600) {
-        timeOfDaySecs += 24 * 3600;
-    }
-
-    return timeOfDaySecs;
-}
 
 export function isDefined(x: any): boolean {
     return x !== null && x !== undefined;
 }
 
-export function getClosestStopTimes(db: BetterSqlite3.Database, time: Date, tripFilter?: string): ClosestStopTime[] {
-    const timeOfDaySecs = getTimeOfDayForGtfs(time);
-    const timeOfDay = secondsToHHMMSS(timeOfDaySecs);
+export function getClosestStopTimes(db: BetterSqlite3.Database, time: TimeTz, tripFilter?: string): ClosestStopTime[] {
+    const getClosestStopTimesInner = (date: TimeTz, secondsOffset: number) => {
+        const timeOfDaySecs = date.secondsOfDay() + secondsOffset;
+        const timeOfDay = secondsToHHMMSS(timeOfDaySecs);
 
-    // Limit the search to 7 minutes before and after the current time
-    // This makes the search faster as we don't have to search through the entire day for the appropriate stop
-    // TODO: remove this approximation and make a more efficient query
-    const timeOfDayBefore = secondsToHHMMSS(timeOfDaySecs - 7 * 60);
-    const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 7 * 60);
-    return getScheduledVehicleLocationsSQL(time, db, timeOfDay, timeOfDayBefore, timeOfDayAfter, tripFilter);
+        // Limit the search to 7 minutes before and after the current time
+        // This makes the search faster as we don't have to search through the entire day for the appropriate stop
+        const timeOfDayBefore = secondsToHHMMSS(timeOfDaySecs - 10 * 60);
+        const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 20 * 60);
+        const dayofWeek = date.dayOfWeek();
+        const YYYYMMDD = date.dayAsYYYYMMDD();
+        return getScheduledVehicleLocationsSQL(db, YYYYMMDD, dayofWeek, timeOfDay, timeOfDayBefore, timeOfDayAfter, tripFilter);
+    }
+
+    const previousDay = time.offsetSecs(-24 * 3600);
+    const busesRunningToday = getClosestStopTimesInner(time, 0)
+
+    // Get buses running since yesterday night (previousDay) if we are in the early morning / late-night transition period
+    if (time.secondsOfDay() <= 4 * 3600) {
+        const busesRunningOvernight = getClosestStopTimesInner(previousDay, 24 * 3600)
+        return busesRunningOvernight.concat(busesRunningToday)
+    } else {
+        // Don't bother to check for overnight buses (24:00:00 onwards)
+        return busesRunningToday;
+    }
 }
 
 export interface StopTimesWithLocation extends ClosestStopTime {
@@ -114,7 +110,7 @@ export interface StopTimesWithLocation extends ClosestStopTime {
 export function processClosestStopTimes(
     feed: UpdatingGtfsFeed,
     closestStopTimes: ClosestStopTime[],
-    time: Date,
+    time: TimeTz,
 ): StopTimesWithLocation[] {
     // Make pairs based on before and after closest stop times
     const stopTimePairs: [ClosestStopTime, ClosestStopTime][] = [];
@@ -137,7 +133,7 @@ export function processClosestStopTimes(
         console.warn("No stop time pairs found!", closestStopTimes);
     }
 
-    const timeOfDaySecs = getTimeOfDayForGtfs(time);
+    const timeOfDaySecs = time.secondsOfDay()
 
     function interpolateLocationSimpleLinear(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime) {
         const beforeStopLocation = feed.getStopLocation(beforeStopTime.stop_id);
@@ -185,7 +181,13 @@ export function processClosestStopTimes(
 
         // Interpolate the current location based on time
         const timeDiff = HHMMSSToSeconds(afterStopTime.arrival_time) - HHMMSSToSeconds(beforeStopTime.departure_time);
-        const currentTimeDiff = timeOfDaySecs - HHMMSSToSeconds(beforeStopTime.departure_time);
+        let currentTimeDiff = timeOfDaySecs - HHMMSSToSeconds(beforeStopTime.departure_time);
+
+        if (currentTimeDiff < 0) {
+            // We are currently in the early morning period (0AM - 4AM), so timeOfDaySecs is between 0 and 4 * 3600,
+            // whereas the departure time is between 24:00 - 28:00. We need to add 24 hours to currentTimeDiff
+            currentTimeDiff += 24 * 3600;
+        }
 
         let interpolationFactor = 0;
         if (timeDiff !== 0) {
@@ -277,17 +279,18 @@ function convertClosestStopTimeToVehiclePositions(
     };
 }
 
-export async function getScheduledVehicleLocations(agency: string, time: number): Promise<VehiclePositionOutput[]> {
+export async function getScheduledVehicleLocations(agency: string, unixTime: number): Promise<VehiclePositionOutput[]> {
     // Use the scheduled GTFS feed to get the positions of all vehicles at a given time.
     // You don't need to fill out VID, status, secsSinceReport, stopId, or label.
-    const feed = await UpdatingGtfsFeed.getFeed(agency, time);
+    const feed = await UpdatingGtfsFeed.getFeed(agency, unixTime);
     const gtfsDatabase = feed.db;
 
     assert(gtfsDatabase);
+    const time = new TimeTz(unixTime, "America/Toronto");
 
-    const closestStopTimes = getClosestStopTimes(gtfsDatabase, new Date(time), undefined);
+    const closestStopTimes = getClosestStopTimes(gtfsDatabase, time, undefined);
     console.log("Found", closestStopTimes.length, "closest stop times")
-    const stopTimesWithLocation = processClosestStopTimes(feed, closestStopTimes, new Date(time));
+    const stopTimesWithLocation = processClosestStopTimes(feed, closestStopTimes, time);
 
     const positions = stopTimesWithLocation.map(st => {
         return convertClosestStopTimeToVehiclePositions(feed, st);
@@ -307,19 +310,19 @@ export interface DistanceAlongRoute {
 }
 
 export function calculateDistanceAlongRoute(
-    currentTime: number,
+    unixTime: number,
     feed: UpdatingGtfsFeed,
     vp: VehiclePosition,
 ): DistanceAlongRoute {
-    const busDate = new Date(currentTime - 1000 * (vp.secsSinceReport || 0));
+    const busRecordTime = new TimeTz(unixTime, "America/Toronto").offsetSecs(-1000 * (vp.secsSinceReport || 0));
 
     const shape = feed.getShapeByTripID(vp.tripId);
 
-    const scheduledLocation = getClosestStopTimes(feed.db, busDate, vp.tripId);
+    const scheduledLocation = getClosestStopTimes(feed.db, busRecordTime, vp.tripId);
     let scheduledDistanceAlongRoute = -1;
 
     if (scheduledLocation.length === 1) {
-        console.warn("Bus is nearly ending it's journey! Skipping.", currentTime, vp.tripId, scheduledLocation);
+        console.warn("Bus is nearly ending it's journey! Skipping.", unixTime, vp.tripId, scheduledLocation);
         return {scheduledDistanceAlongRoute: 0, actualDistanceAlongRoute: 0};
     } else if (scheduledLocation.length == 0) {
         // If we can't find a scheduled location, that means the trip has already ended. This bus is late and still not finished.
@@ -327,7 +330,7 @@ export function calculateDistanceAlongRoute(
         scheduledDistanceAlongRoute = shape.length;
     } else {
         assert(scheduledLocation.length == 2);
-        const interpolated = processClosestStopTimes(feed, scheduledLocation, busDate);
+        const interpolated = processClosestStopTimes(feed, scheduledLocation, busRecordTime);
 
         scheduledDistanceAlongRoute = interpolated[0].distanceAlongRoute;
     }

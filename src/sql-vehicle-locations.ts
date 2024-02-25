@@ -3,7 +3,6 @@
 import {Database} from "sqlite";
 import BetterSqlite3 from "better-sqlite3";
 import {ClosestStopTime} from "./get-scheduled-vehicle-locations";
-import moment from "moment-timezone";
 
 export async function sqlVehicleLocations(db: Database, time: number, agency: string) {
     const startTimeBuffer = time - 5 * 60 * 1000;
@@ -44,52 +43,97 @@ WITH latest_vehicle_positions AS
     );
 }
 
-function getDayOfWeekColumnName(timestamp: number, timezone: string): string {
-    // Convert Unix timestamp to Moment.js object with the specified timezone
-    const dateInTimezone = moment.unix(timestamp / 1000).tz(timezone);
-
-    // Get the day of the week (0-6) and map it to the corresponding column name
-    const dayOfWeek = dateInTimezone.day();
-    const dayColumnNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    return dayColumnNames[dayOfWeek];
+interface CalendarExceptionRow {
+    service_id: string;
+    exception_type: string;
 }
 
-function getDateAsString(date: Date): string {
-    // Returns a date in YYYYMMDD format
+interface CalendarException {
+    // Specially enabled service_ids that will run on this day. We want to include this service_id in eligible trips
+    enabled: string[];
+    // Exclude these service_ids from eligible trips
+    disabled: string[];
+}
 
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, "0"); // Months are zero-based
-    const day = date.getDate().toString().padStart(2, "0");
+function parseCalendarException(rows: CalendarExceptionRow[]): CalendarException {
+    const enabled = rows.filter(x => x.exception_type === "1").map(x => x.service_id);
+    const disabled = rows.filter(x => x.exception_type === "2").map(x => x.service_id);
+    return {enabled, disabled};
+}
 
-    return `${year}${month}${day}`;
+function singleQuote(s: string): string {
+    return `'${s}'`;
 }
 
 export function getScheduledVehicleLocationsSQL(
-    time: Date,
     db: BetterSqlite3.Database,
+    YYYYMMDD: string,
+    dayOfWeek: string,
     timeOfDay: string,
     timeOfDayBefore: string,
     timeOfDayAfter: string,
-    tripFilter?: string,
+    // Optional tripId to filter by
+    tripId?: string,
 ): ClosestStopTime[] {
-    if (tripFilter === undefined) {
-        // Don't filter any trips. `true` as a WHERE query will just do nothing.
-        tripFilter = "true";
+    let allFilters: string;
+
+    const formattedDate = YYYYMMDD;
+
+    if (tripId === undefined) {
+        // No specific tripId, so we need to find all tripIds that are active today
+        const exceptionServiceIdsEnabled: CalendarExceptionRow[] = db
+            .prepare(`SELECT service_id, exception_type FROM calendar_dates WHERE date = ${formattedDate}`)
+            .all() as CalendarExceptionRow[];
+
+        const exceptionServiceIds = parseCalendarException(exceptionServiceIdsEnabled);
+
+        const serviceIdValidToday = "c.start_date <= @date AND c.end_date >= @date";
+        // Default WHERE clause for filtering trips by day of the week
+        const defaultDayOfWeekFilter = `
+    (c.${dayOfWeek} = 1 AND c.start_date <= @date AND c.end_date >= @date)`;
+
+        const enabledExceptionFilter = `t.service_id IN (${exceptionServiceIds.enabled.map(singleQuote).join(", ")})`;
+        const disabledExceptionFilter = `t.service_id NOT IN (${exceptionServiceIds.disabled
+            .map(singleQuote)
+            .join(", ")})`;
+
+        /* Rationale for why a tripId is active:
+        1. The service_id has to be valid for today's date AND
+        2. Exclude all trips that are an exception with type disabled AND
+        3. The service_id has to be AND
+            a. Explicitly enabled for today's date via exception OR
+            b. the day of the week has to match the current date
+         */
+        const activeServiceIds = `(
+            ${serviceIdValidToday} AND 
+            ${disabledExceptionFilter} AND 
+            (${enabledExceptionFilter} OR ${defaultDayOfWeekFilter}) )
+        `;
+
+        // Some agencies don't use calendar feature in GTFS, so we assume trips with service_id = null runs on all days
+        const nullFilter = "t.service_id IS NULL";
+
+        /* Rationale:
+        1. The service_id can be designated as "active" by activeServiceIds
+        2. The service_id is null, which means it runs on all days (assumption)
+         */
+        allFilters = `(${activeServiceIds} OR ${nullFilter})`;
     } else {
-        tripFilter = `t.trip_id == '${tripFilter}'`;
+        // We only care about a specific trip. Ignore all the service_id filters
+        allFilters = `(t.trip_id = ${singleQuote(tripId)})`;
     }
 
+    // SQL query to get the closest stop times before and after the current time
+    // Once we have two stop_times that "surround" the current time, we can interpolate exactly where the bus is
     const query = `
 WITH eligible_trips AS (
   SELECT DISTINCT t.trip_id
   FROM trips t
     LEFT JOIN calendar c ON t.service_id = c.service_id
-  WHERE ((c.${getDayOfWeekColumnName(
-      time.getTime(),
-      "America/Toronto"
-  )} = 1 AND c.start_date <= @date AND c.end_date >= @date) OR c.service_id IS NULL) AND
-  (${tripFilter})
+  WHERE ${allFilters}
 ),
+
+-- stop_times after the current time
 after_stops AS (
   SELECT ROWID, trip_id, MIN(arrival_time) AS first_stop_after_selected_time
   FROM stop_times
@@ -98,14 +142,18 @@ after_stops AS (
     AND trip_id IN (SELECT trip_id FROM eligible_trips)
   GROUP BY trip_id
 ),
+
+-- stop_times before the current time
 before_stops AS (
-  SELECT ROWID, trip_id, MIN(arrival_time) AS first_stop_before_selected_time
+  SELECT ROWID, trip_id, MAX(departure_time) AS first_stop_before_selected_time
   FROM stop_times
   WHERE departure_time <= @timeOfDay
     AND departure_time >= @timeOfDayBefore
     AND trip_id IN (SELECT trip_id FROM eligible_trips)
   GROUP BY trip_id
 )
+
+-- use '1after' and '0before' so we can sort the results lexicographically
 
 SELECT stop_times.*, '1after' as source
 FROM stop_times
@@ -123,7 +171,7 @@ ORDER BY trip_id, source;
     const statement = db.prepare(query);
 
     const queryParams = {
-        date: getDateAsString(time), // YYYYMMDD format (e.g. "20231001")
+        date: YYYYMMDD,
         timeOfDay: timeOfDay,
         timeOfDayBefore: timeOfDayBefore,
         timeOfDayAfter: timeOfDayAfter,
