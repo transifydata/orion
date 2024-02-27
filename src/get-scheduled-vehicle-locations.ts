@@ -65,7 +65,7 @@ export function getClosestStopTimes(db: BetterSqlite3.Database, time: TimeTz, tr
         const timeOfDaySecs = date.secondsOfDay() + secondsOffset;
         const timeOfDay = secondsToHHMMSS(timeOfDaySecs);
 
-        // Limit the search to 7 minutes before and after the current time
+        // Limit the search to (-10, +20) minutes before and after the current time
         // This makes the search faster as we don't have to search through the entire day for the appropriate stop
         const timeOfDayBefore = secondsToHHMMSS(timeOfDaySecs - 10 * 60);
         const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 20 * 60);
@@ -77,7 +77,14 @@ export function getClosestStopTimes(db: BetterSqlite3.Database, time: TimeTz, tr
     const previousDay = time.offsetSecs(-24 * 3600);
     const busesRunningToday = getClosestStopTimesInner(time, 0)
 
-    // Get buses running since yesterday night (previousDay) if we are in the early morning / late-night transition period
+    /*
+    Get buses running since yesterday night (previousDay) if we are in the early morning / late-night transition period
+
+    At 1am on a Monday a bus might correspond to a scheduled bus at 25:00 from the previous date (a Sunday schedule) or
+     to a bus at 1:00 on the current date. To ensure real-time vehicles can be matched, if it's before 4am, scheduled
+     buses from the same time from the previous day - but with 24 hours added to their secondsOfDay (GTFS uses seconds
+     of day to store departure times) - are fetched.
+     */
     if (time.secondsOfDay() <= 4 * 3600) {
         const busesRunningOvernight = getClosestStopTimesInner(previousDay, 24 * 3600)
         return busesRunningOvernight.concat(busesRunningToday)
@@ -227,7 +234,6 @@ export function processClosestStopTimes(
         return {...beforeStopTime, ...result};
     });
 
-    console.log(`Used shape interpolation for ${shapeInterpCount} / ${stopTimePairs.length} buses`);
     return result;
 }
 
@@ -276,7 +282,7 @@ export async function getScheduledVehicleLocations(agency: string, unixTime: num
     const time = new TimeTz(unixTime, "America/Toronto");
 
     const closestStopTimes = getClosestStopTimes(gtfsDatabase, time, undefined);
-    console.log("Found", closestStopTimes.length, "closest stop times")
+    console.log("Found", closestStopTimes.length, "closest stop times", time.toString())
     const stopTimesWithLocation = processClosestStopTimes(feed, closestStopTimes, time);
 
     const positions = stopTimesWithLocation.map(st => {
@@ -301,7 +307,7 @@ export function calculateDistanceAlongRoute(
     feed: UpdatingGtfsFeed,
     vp: VehiclePosition,
 ): DistanceAlongRoute {
-    const busRecordTime = new TimeTz(unixTime, "America/Toronto").offsetSecs(-1000 * (vp.secsSinceReport || 0));
+    const busRecordTime = new TimeTz(unixTime, "America/Toronto").offsetSecs(-1 * (vp.secsSinceReport || 0));
 
     const shape = feed.getShapeByTripID(vp.tripId);
 

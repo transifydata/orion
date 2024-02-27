@@ -5,12 +5,15 @@ export class TimeTz {
     private time: Moment;
     private tz: string;
 
+    toString() {
+        return this.time.toString();
+    }
     constructor(time: number, tz: string) {
         this.tz = tz;
         this.time = moment.unix(time / 1000).tz(tz);
 
         // Check that we are passing in milliseconds, not seconds since epoch
-        assert(this.time.year() >= 2000 && this.time.year() < 2100);
+        assert(this.time.year() >= 2000 && this.time.year() < 2100, `Year invalid: ${this.time.toString()} ${time} ${tz}`);
     }
 
     offsetSecs(x: number): TimeTz {

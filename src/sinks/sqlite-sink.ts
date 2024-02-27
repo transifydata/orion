@@ -168,7 +168,7 @@ function convertToSQL(
         }),
     );
 
-    const stopTime = getClosestScheduledStopTime(feed, st, tripId, (timestamp as Long).toInt());
+    const stopTime = getClosestScheduledStopTime(feed, st, tripId, (timestamp as Long).toInt() * 1000);
     const nextStop = stopTimeUpdate.find(a => {
         return a.stopId == stopTime?.stop_id;
     });

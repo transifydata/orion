@@ -211,7 +211,7 @@ export class UpdatingGtfsFeed {
     static async getFeed(agency: string, time: number): Promise<UpdatingGtfsFeed> {
         const found = UpdatingGtfsFeed.AGENCY_MAP.find(agency, time);
 
-        console.log("Returning feed for", agency, "found?: ", found?.valid_start);
+        console.log("Returning feed for", agency, "found?: ", found?.valid_start, "ID", found?.id);
         if (found === undefined) {
             const newFeed = await UpdatingGtfsFeed.openWait(agency, time);
             UpdatingGtfsFeed.AGENCY_MAP.push(newFeed);

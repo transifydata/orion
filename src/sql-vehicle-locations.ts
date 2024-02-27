@@ -72,20 +72,21 @@ export function getScheduledVehicleLocationsSQL(
     timeOfDay: string,
     timeOfDayBefore: string,
     timeOfDayAfter: string,
-    // Optional tripId to filter by
-    tripId?: string,
+    // Optional tripId to filter by. Used when we only care about scheduled locations for a specific trip (in calculateDistanceAlongRoute)
+    tripIdFilter?: string,
 ): ClosestStopTime[] {
     let allFilters: string;
 
     const formattedDate = YYYYMMDD;
 
-    if (tripId === undefined) {
+    if (tripIdFilter === undefined) {
         // No specific tripId, so we need to find all tripIds that are active today
         const exceptionServiceIdsEnabled: CalendarExceptionRow[] = db
             .prepare(`SELECT service_id, exception_type FROM calendar_dates WHERE date = ${formattedDate}`)
             .all() as CalendarExceptionRow[];
 
         const exceptionServiceIds = parseCalendarException(exceptionServiceIdsEnabled);
+        console.log("Exception service ids: ", exceptionServiceIds);
 
         const serviceIdValidToday = "c.start_date <= @date AND c.end_date >= @date";
         // Default WHERE clause for filtering trips by day of the week
@@ -105,10 +106,12 @@ export function getScheduledVehicleLocationsSQL(
             b. the day of the week has to match the current date
          */
         const activeServiceIds = `(
-            ${serviceIdValidToday} AND 
             ${disabledExceptionFilter} AND 
-            (${enabledExceptionFilter} OR ${defaultDayOfWeekFilter}) )
-        `;
+            (
+                (${defaultDayOfWeekFilter} AND ${serviceIdValidToday}) OR 
+                (${enabledExceptionFilter})
+            )
+        ) `;
 
         // Some agencies don't use calendar feature in GTFS, so we assume trips with service_id = null runs on all days
         const nullFilter = "t.service_id IS NULL";
@@ -120,7 +123,7 @@ export function getScheduledVehicleLocationsSQL(
         allFilters = `(${activeServiceIds} OR ${nullFilter})`;
     } else {
         // We only care about a specific trip. Ignore all the service_id filters
-        allFilters = `(t.trip_id = ${singleQuote(tripId)})`;
+        allFilters = `(t.trip_id = ${singleQuote(tripIdFilter)})`;
     }
 
     // SQL query to get the closest stop times before and after the current time
