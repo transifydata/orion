@@ -87,7 +87,6 @@ async function downloadFromGtfsService(agency: string, time: number, filepath: s
     fs.renameSync(tempFilePath, filepath);
     console.log("GTFS download completed successfully.");
 }
-type FieldsRecord<T extends string[]> = Record<T[number], any>;
 
 function asNumber(x: any): number {
     if (typeof x === "number") {
