@@ -96,9 +96,9 @@ export async function fixData(gtfs: UpdatingGtfsFeed, agency_id: string, data: V
         if (data.tripId === "") {
             throw new Error("Unexpected...route id and trip id is both null");
         }
-        const trip = gtfs.getTrips({trip_id: data.tripId}, ["route_id"])[0];
+        const trip = gtfs.getTrip(data.tripId, ["route_id"]);
 
-        data.rid = trip.route_id.replace(agency_id, "");
+        data.rid = trip?.route_id.replace(agency_id, "");
     }
 }
 
@@ -138,6 +138,7 @@ export async function testing() {
         secsSinceReport: 74,
         stopId: "00015670",
         label: "2079",
+        blockId: "240108",
     };
 
     const feed = await UpdatingGtfsFeed.getFeed("brampton", Date.now());

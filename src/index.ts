@@ -1,6 +1,6 @@
 import {migrateDbs, writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-sink";
-import * as NextBus from "./providers/nextbus";
-import * as Realtime from "./providers/gtfs-realtime";
+import NextBus from "./providers/nextbus";
+import Realtime from "./providers/gtfs-realtime";
 import {config} from "./config";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {writeToS3} from "./sinks/s3Helper";
@@ -23,9 +23,14 @@ if (!config.s3_bucket) {
     throw new Error("No s3_bucket specified in config.");
 }
 
+export interface Provider {
+    getVehicles: (config: Agency) => Promise<any>;
+    getTripUpdates: (config: Agency) => Promise<any>;
+}
+
 const providerNames = ["nextbus", "gtfs-realtime"];
 
-const providers: Record<string, any> = {
+const providers: Record<string, Provider> = {
     nextbus: NextBus,
     "gtfs-realtime": Realtime,
 };

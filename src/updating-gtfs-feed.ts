@@ -1,9 +1,10 @@
 import fs from "fs";
-import {getStops, getStoptimes, getTrips, openDb as openDb_internal} from "gtfs";
+import {getStops, getStoptimes, getTrips, openDb as openDb_internal, SqlResults} from "gtfs";
 import axios from "axios";
 import {Shape} from "./shape";
 import BetterSqlite3, {Database} from "better-sqlite3";
 import {formatDate} from "./transify-api-connector";
+import {fieldList} from "aws-sdk/clients/datapipeline";
 
 const config = {
     sqlitePath: undefined,
@@ -28,9 +29,11 @@ export interface GtfsFeedInfoResponse {
     id: number;
 }
 async function getFeedInfoFromGtfsService(agency: string, time: number): Promise<GtfsFeedInfoResponse> {
+    const url = `https://staging-api.transify.ca/api/gtfs/urls?agency=${agency}&date=${formatDate(new Date(time))}`
+    console.log("Requesting from transify api", url)
     const response = await axios({
         method: "get",
-        url: `https://staging-api.transify.ca/api/gtfs/urls?agency=${agency}&date=${formatDate(new Date(time))}`,
+        url,
     });
 
     const data = response.data;
@@ -84,6 +87,7 @@ async function downloadFromGtfsService(agency: string, time: number, filepath: s
     fs.renameSync(tempFilePath, filepath);
     console.log("GTFS download completed successfully.");
 }
+type FieldsRecord<T extends string[]> = Record<T[number], any>;
 
 function asNumber(x: any): number {
     if (typeof x === "number") {
@@ -211,26 +215,28 @@ export class UpdatingGtfsFeed {
     static async getFeed(agency: string, time: number): Promise<UpdatingGtfsFeed> {
         const found = UpdatingGtfsFeed.AGENCY_MAP.find(agency, time);
 
-        console.log("Returning feed for", agency, "found?: ", found?.valid_start, "ID", found?.id);
         if (found === undefined) {
+            console.log("Feed not found, opening...", agency, time)
             const newFeed = await UpdatingGtfsFeed.openWait(agency, time);
             UpdatingGtfsFeed.AGENCY_MAP.push(newFeed);
             return newFeed;
         } else {
+            console.log("Returning feed for", agency, " ", found.valid_start, "ID", found.id);
             return found;
         }
     }
 
     getTerminalDepartureTime(trip_id: string): string {
-        // Returns the departure time of the last stop in a trip
+        // Returns the departure time of the first stop in a trip
         const statement = this.db.prepare(
-            "SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY stop_sequence ASC LIMIT 1",
+            "SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY CAST(stop_sequence AS INT) ASC LIMIT 1",
         );
 
         const row = statement.get({trip_id: trip_id});
         // @ts-ignore
         return row.departure_time;
     }
+
     getShapeByTripID(trip_id: string): Shape {
         if (this.shapes_cache[trip_id]) {
             return this.shapes_cache[trip_id];
@@ -246,7 +252,7 @@ export class UpdatingGtfsFeed {
         const coordinates: [number, number][] = [];
 
         if (rows.length == 0) {
-            const error = new Error("Couldn't find any shapes for trip");
+            const error = new Error("Couldn't find any shapes for trip" + trip_id);
             console.error(error, trip_id);
             throw new Error(error + ":" + trip_id);
         }
@@ -262,7 +268,7 @@ export class UpdatingGtfsFeed {
         return this.shapes_cache[trip_id];
     }
 
-    getStops(query: Record<string, any>, fields: Array<string>) {
+    getStops(query: Record<string, any>, fields: Array<string>): Array<Record<string, any>> {
         return getStops(query, fields, undefined, {db: this.db});
     }
 
@@ -272,12 +278,16 @@ export class UpdatingGtfsFeed {
         return [parseFloat(ret.stop_lat), parseFloat(ret.stop_lon)];
     }
 
-    getStoptimes(query: Record<string, any>, fields: Array<string>) {
+    getStoptimes(query: Record<string, any>, fields: Array<string>): Array<Record<string, any>> {
         return getStoptimes(query, fields, undefined, {db: this.db});
     }
-
-    getTrips(query: Record<string, any>, fields: Array<string>) {
-        return getTrips(query, fields, undefined, {db: this.db});
+    getTrip(tripId: string, fields: Array<string>): Record<string, any> | undefined {
+        const result = getTrips({trip_id: tripId}, fields, undefined, {db: this.db});
+        if (result.length === 0) {
+            return undefined;
+        } else {
+            return result[0];
+        }
     }
 
     date_contains(date: Date): boolean {

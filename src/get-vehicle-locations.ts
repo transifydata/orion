@@ -4,7 +4,7 @@ import {VehiclePositionOutput} from "./providers/gtfs-realtime";
 
 export interface LinkedPosition {
     live?: VehiclePositionOutput;
-    scheduled: VehiclePositionOutput;
+    scheduled?: VehiclePositionOutput;
 }
 
 export interface LinkedPositionsOutput {
@@ -19,6 +19,38 @@ async function measureExecutionTime<T>(func: () => Promise<T>): Promise<{time: n
 
     const endTime = performance.now();
     return {result, time: endTime - startTime};
+}
+
+function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehiclePositionOutput[]): LinkedPositionsOutput {
+    const output: LinkedPositionsOutput = {};
+
+    const blockIdToTripId: Map<string, string> = new Map();
+
+    scheduled.forEach(sp => {
+        blockIdToTripId.set(sp.blockId, sp.tripId);
+        output[sp.tripId] = {
+            scheduled: sp,
+        };
+    });
+    live.forEach(lp => {
+        if (output.hasOwnProperty(lp.tripId)) {
+            output[lp.tripId] = Object.assign(output[lp.tripId], {
+                live: lp,
+            });
+        } else if (blockIdToTripId.has(lp.blockId)) {
+            const mappedTripId = blockIdToTripId.get(lp.blockId)!;
+            output[mappedTripId] = Object.assign(output[mappedTripId], {
+                live: lp,
+            });
+        } else {
+            console.warn("No scheduled trip for live trip", lp);
+            output[lp.tripId] = {
+                live: lp,
+            }
+        }
+    });
+
+    return output;
 }
 
 export default async function getVehicleLocations(agency: string, time: number): Promise<LinkedPositionsOutput> {
