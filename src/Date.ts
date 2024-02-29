@@ -16,6 +16,10 @@ export class TimeTz {
         assert(this.time.year() >= 2000 && this.time.year() < 2100, `Year invalid: ${this.time.toString()} ${time} ${tz}`);
     }
 
+    unixSecs() {
+        return this.time.unix();
+    }
+
     offsetSecs(x: number): TimeTz {
         return new TimeTz((this.time.unix() + x) * 1000,this.tz);
     }

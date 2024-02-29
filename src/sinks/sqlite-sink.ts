@@ -1,7 +1,6 @@
 import {VehiclePosition} from "../providers/gtfs-realtime.js";
 
-import {Database, open} from "sqlite";
-import sqlite3 from "sqlite3";
+import {Database} from "sqlite";
 import {Agency} from "../index";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import Long from "long";
@@ -11,6 +10,7 @@ import {
     DistanceAlongRoute,
     getClosestScheduledStopTime,
 } from "../get-scheduled-vehicle-locations";
+import {openDb, pruneDb} from "./sqlite-tools";
 import TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
 import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
 
@@ -30,9 +30,9 @@ export async function migrateDbs() {
     const db = await openDb();
     console.log("Migrating...");
     await db.migrate();
-    console.log('Migrated db');
-    await db.run("PRAGMA journal_mode = WAL;");
-    console.log('enable journal mode');
+
+    // await db.run("PRAGMA journal_mode = WAL;");
+
     // await pruneDb(db, Date.now());
 
     console.log("Finished migrations");
@@ -209,15 +209,3 @@ export async function writeTripUpdatesToSink(
     }
 }
 
-async function pruneDb(db: Database, currentTime: number) {
-    if (currentTime - lastPruned > 10 * 3600 * 1000) {
-        console.log("Pruning...");
-        lastPruned = currentTime;
-        // Prune all records older than 50 days ago
-        const prunePast = currentTime - 50 * 24 * 3600 * 1000;
-        const deletedRows1 = await db.run(`DELETE FROM trip_update WHERE server_time < ${prunePast}`);
-        const deletedRows2 = await db.run(`DELETE FROM vehicle_position WHERE server_time < ${prunePast}`);
-
-        console.log("Pruned ", deletedRows1.changes, deletedRows2.changes);
-    }
-}
