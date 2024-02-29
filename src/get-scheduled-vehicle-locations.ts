@@ -353,7 +353,6 @@ export function calculateDistanceAlongRoute(
     let scheduledDistanceAlongRoute = -1;
 
     if (scheduledLocation.length === 1) {
-        console.log("WEIRD1", vp)
         if (scheduledLocation[0].source === "1after") {
             // If there's only one scheduled location and it's after the bus, that means the bus is at the start of the trip
             // (It started early, before the first stop, hence the first stop is *after*)
@@ -364,7 +363,6 @@ export function calculateDistanceAlongRoute(
             scheduledDistanceAlongRoute = shape.length;
         }
     } else if (scheduledLocation.length == 0) {
-        console.log("WEIRD0", vp)
         // If we can't find a scheduled location, that means the trip has already ended OR hasn't started yet.
         const terminalDepartureTime = HHMMSSToSeconds(feed.getTerminalDepartureTime(vp.tripId));
         if (busRecordTime.secondsOfDay() < terminalDepartureTime) {
