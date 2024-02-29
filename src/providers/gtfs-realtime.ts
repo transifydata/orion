@@ -5,6 +5,7 @@ import axios from "axios";
 
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import {UpdatingGtfsFeed} from "../updating-gtfs-feed";
+import {ScheduledStatus} from "../get-scheduled-vehicle-locations";
 
 async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
     const url = config.tripUpdatesUrl;
@@ -104,6 +105,9 @@ export interface VehiclePositionOutput extends VehiclePosition {
     source: string;
     terminalDepartureTime: string;
     distanceAlongRoute: number;
+
+    // Scheduled only
+    scheduledStatus?: ScheduledStatus;
 }
 
 function makeVehicle(gtfsFeed: UpdatingGtfsFeed, gtfsVehiclePosition, feedTimestamp): VehiclePosition {

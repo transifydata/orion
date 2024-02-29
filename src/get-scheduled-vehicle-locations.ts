@@ -94,11 +94,14 @@ export function getClosestStopTimes(db: BetterSqlite3.Database, time: TimeTz, tr
     }
 }
 
+export type ScheduledStatus = "running" | "not-started" | "ended";
+
 export interface StopTimesWithLocation extends ClosestStopTime {
     // Lat, lon
     currentLocation: [number, number];
     heading: number;
     distanceAlongRoute: number;
+    scheduledStatus: ScheduledStatus
 }
 
 export function processClosestStopTimes(
@@ -106,19 +109,27 @@ export function processClosestStopTimes(
     closestStopTimes: ClosestStopTime[],
     time: TimeTz,
 ): StopTimesWithLocation[] {
-    // Make pairs based on before and after closest stop times
-    const stopTimePairs: [ClosestStopTime, ClosestStopTime][] = [];
-    let i = 1;
+    // Make pairs based on before and after closest stop times. The iteration works because they are sorted by trip_id
+    const stopTimePairs: [ClosestStopTime | undefined, ClosestStopTime | undefined][] = [];
+    let i = 0;
     while (i < closestStopTimes.length) {
         if (
-            closestStopTimes[i - 1].source === "0before" &&
-            closestStopTimes[i].source === "1after" &&
-            closestStopTimes[i - 1].trip_id === closestStopTimes[i].trip_id
+            i < closestStopTimes.length - 1 &&
+            closestStopTimes[i].source === "0before" &&
+            closestStopTimes[i + 1].source === "1after" &&
+            closestStopTimes[i + 1].trip_id === closestStopTimes[i].trip_id
         ) {
             // Found a pair
-            stopTimePairs.push([closestStopTimes[i - 1], closestStopTimes[i]]);
+            stopTimePairs.push([closestStopTimes[i], closestStopTimes[i + 1]]);
             i += 2;
         } else {
+            if (closestStopTimes[i].source === "0before") {
+                // We only see the before stop, not the after stop. This means the bus is at the *end* of the trip
+                stopTimePairs.push([closestStopTimes[i], undefined]);
+            } else {
+                // We only see the after stop, not the before stop. This means the bus is at the *start* of the trip
+                stopTimePairs.push([undefined, closestStopTimes[i]]);
+            }
             i += 1;
         }
     }
@@ -127,9 +138,14 @@ export function processClosestStopTimes(
         console.warn("No stop time pairs found!", closestStopTimes);
     }
 
+    // To convert ClosestStopTime to StopTimesWithLocation, we need to calculate more fields using interpolate* functions
+    // This type contains the keys "distanceAlongRoute currentLocation heading status" that will be calculated using
+    // interpolate* functions
+    type LocationCalculationType = Omit<StopTimesWithLocation, keyof ClosestStopTime>
+
     const timeOfDaySecs = time.secondsOfDay()
 
-    function interpolateLocationSimpleLinear(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime) {
+    function interpolateLocationSimpleLinear(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime): LocationCalculationType {
         const beforeStopLocation = feed.getStopLocation(beforeStopTime.stop_id);
         const afterStopLocation = feed.getStopLocation(afterStopTime.stop_id);
 
@@ -159,10 +175,11 @@ export function processClosestStopTimes(
             currentLocation,
             heading: normalizedDirection,
             distanceAlongRoute: -1,
+            scheduledStatus: "running",
         };
     }
 
-    function interpolateLocationAlongShape(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime) {
+    function interpolateLocationAlongShape(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime): LocationCalculationType {
         const shape = feed.getShapeByTripID(beforeStopTime.trip_id);
 
         const beforeShapeDistTravelled = beforeStopTime.shape_dist_traveled;
@@ -214,24 +231,43 @@ export function processClosestStopTimes(
             currentLocation,
             heading: normalizedDirection,
             distanceAlongRoute: currentShapeDistTravelled * shape.length,
+            scheduledStatus: "running",
         };
     }
 
     let shapeInterpCount = 0;
-    const result = stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
-        let result: {
-            distanceAlongRoute: number;
-            currentLocation: [number, number];
-            heading: number;
-        };
+    const result: Array<StopTimesWithLocation> = stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
+        let locationCalculation: LocationCalculationType
 
-        if (isDefined(beforeStopTime.shape_dist_traveled) && isDefined(afterStopTime.shape_dist_traveled)) {
-            shapeInterpCount += 1;
-            result = interpolateLocationAlongShape(beforeStopTime, afterStopTime);
+        const stopTime = beforeStopTime || afterStopTime !;
+        if (beforeStopTime && afterStopTime) {
+            if (isDefined(beforeStopTime.shape_dist_traveled) && isDefined(afterStopTime.shape_dist_traveled)) {
+                shapeInterpCount += 1;
+                locationCalculation = interpolateLocationAlongShape(beforeStopTime, afterStopTime);
+            } else {
+                locationCalculation = interpolateLocationSimpleLinear(beforeStopTime, afterStopTime);
+            }
+        } else if (beforeStopTime) {
+            // Only see before, that means the scheduledTrip already ended.
+            locationCalculation = {
+                currentLocation: feed.getStopLocation(beforeStopTime.stop_id),
+                heading: 0,
+                distanceAlongRoute: -1,
+                scheduledStatus: "ended",
+            }
+        } else if (afterStopTime) {
+            // Only see after, that means the scheduledTrip hasn't started yet.
+            locationCalculation = {
+                currentLocation: feed.getStopLocation(afterStopTime.stop_id),
+                heading: 0,
+                distanceAlongRoute: 0,
+                scheduledStatus: "not-started",
+            }
         } else {
-            result = interpolateLocationSimpleLinear(beforeStopTime, afterStopTime);
+            throw new Error("Impossible");
         }
-        return {...beforeStopTime, ...result};
+
+        return {...stopTime, ...locationCalculation};
     });
 
     return result;
@@ -269,7 +305,8 @@ function convertClosestStopTimeToVehiclePositions(
         source: "scheduled",
         terminalDepartureTime: db.getTerminalDepartureTime(st.trip_id),
         distanceAlongRoute: st.distanceAlongRoute,
-        blockId: tripData?.block_id
+        blockId: tripData?.block_id,
+        scheduledStatus: st.scheduledStatus,
     };
 }
 

@@ -60,7 +60,16 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
         }
     });
 
-    return output;
+    const filteredOutput: LinkedPositionsOutput = {};
+    for (const [tripId, linkedPosition] of Object.entries(output)) {
+        if (!linkedPosition.live && linkedPosition.scheduled!.scheduledStatus !== 'running') {
+            // If there's no live position and the scheduled position is not running, don't include it
+        } else {
+            filteredOutput[tripId] = linkedPosition;
+        }
+    }
+
+    return filteredOutput;
 }
 
 export default async function getVehicleLocations(agency: string, time: number, joinByBlockId: boolean): Promise<LinkedPositionsOutput> {
