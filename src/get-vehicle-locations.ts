@@ -75,6 +75,7 @@ export default async function getVehicleLocations(agency: string, time: number, 
 
     let output: LinkedPositionsOutput;
     if (joinByBlockId) {
+        console.log("Joining by block ID")
         output = joinVehicleLocations(scheduledPositions, livePositions);
     } else {
         output = {}
