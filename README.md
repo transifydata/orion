@@ -42,6 +42,16 @@ To run the API server: `yarn serve`
 
 To run the worker: `yarn start`
 
+## orion-database.db volume
+
+`yarn start` continually fetches GTFS RT data and appends it to a sqlite database `orion-database.db`. Currently, this 
+database is stored in a volume and mounted at the `/data` directory to the container (see `orion-deployment.yaml`).
+
+The volume is allocated with 150GB SSD (see `persistent-volume-claim.yaml`). To increase the size of the volume,
+you can modify the `resources.requests.storage` field in `persistent-volume-claim.yaml` and then run `kubectl apply -f kubernetes/`.
+
+To check the size of the database, SSH into any pod in `orion-api-deployment` and run `ls -lh /data`.
+
 ## Deploying a test version
 
 To deploy a test version of orion to Kubernetes without merging into master, simply push the tag "manual-deploy" to Github, and 
@@ -68,3 +78,4 @@ If you are using Webstorm and want to use the debugger, create a Node configurat
 `--loader tsx src/localtesting.ts`
 
 I recommend modifying this script to test out specific date edge cases (e.g. midnight). 
+
