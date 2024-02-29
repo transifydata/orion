@@ -7,7 +7,7 @@ import {
   Route,
 } from "./gtfs-parser";
 import getVehicleLocations from "./get-vehicle-locations";
-import {migrateDbs} from "./sinks/sqlite-tools";
+import {migrateDbs, openDb, snapshotDb} from "./sinks/sqlite-tools";
 
 const app = express();
 
@@ -50,6 +50,20 @@ app.get('/positions/:agency', async (req, res, next) => {
         next(e)
     }
 });
+
+const IS_PROD = process.env.NODE_ENV === "production";
+app.get('/snapshot', async (req, res) => {
+    const auth = req.headers.authorization;
+    if (IS_PROD && auth !== process.env.SNAPSHOT_AUTH) {
+        res.sendStatus(401);
+        return;
+    }
+    const startTime: number | undefined = typeof req.query.startTime === "string" ? parseInt(req.query.startTime) : undefined
+    const endTime: number | undefined = typeof req.query.endTime === "string" ? parseInt(req.query.endTime) : undefined
+
+    const uploadData = await snapshotDb(await openDb(), startTime, endTime)
+    res.json(uploadData);
+})
 
 app.get('/', async (req, res) => {
     res.sendStatus(200);

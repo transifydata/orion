@@ -94,7 +94,7 @@ async function prepareDatabaseForExport(db: Database) {
 }
 
 
-async function uploadToS3(bucket: string, key: string, filename: string) {
+async function uploadToS3(bucket: string, key: string, filename: string): Promise<AWS.S3.ManagedUpload.SendData> {
     // Create a read stream for the local file
     const fileStream = fs.createReadStream(filename);
 
@@ -113,13 +113,18 @@ async function uploadToS3(bucket: string, key: string, filename: string) {
 
     const uploadPromise = s3.upload(params).promise();
 
+    let data: AWS.S3.ManagedUpload.SendData | undefined = undefined;
     try {
         console.log("Uploading to S3...")
-        const data = await uploadPromise;
+        data = await uploadPromise;
         console.log("File uploaded successfully. S3 location:", data.Location);
     } catch (err) {
         console.error("Error uploading file to S3:", err);
+        throw err;
     }
+
+    return data;
+
 }
 
 function removeIfExists(filename: string) {
@@ -151,8 +156,8 @@ export async function snapshotDb(db: Database, startTime: number | undefined = u
     // Now upload the file to S3
     const backupS3Bucket = "orion-db-snapshots";
 
-    const currentDate = new TimeTz(Date.now(), "America/Toronto");
+    const currentDate = new TimeTz(startTime, "America/Toronto");
 
-    await uploadToS3(backupS3Bucket, `orion-backup-${currentDate.dayAsYYYYMMDD()}-${currentDate.unixSecs()}.db.gz`, `dailybackup.db`);
-
+    const uploadData = await uploadToS3(backupS3Bucket, `orion-backup-${currentDate.dayAsYYYYMMDD()}-${startTime}-${endTime}.db.gz`, `dailybackup.db`);
+    return uploadData;
 }

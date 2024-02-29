@@ -45,6 +45,11 @@ spec:
                 key: aws_secret_access_key
           - name: IS_SERVER
             value: "true"
+          - name: SNAPSHOT_AUTH
+            valueFrom:
+              secretKeyRef:
+                name: snapshot-credentials
+                key: auth
         volumeMounts:
           - name: my-data
             # Where the container expects to find the SQLITE file (see ORION_DATABASE_PATH)
