@@ -18,6 +18,11 @@ export class Shape {
         if (Number.isNaN(ratio)) {
             ratio = 0.0;
         }
+        if (ratio > 1.0) {
+            // This happens for Barrie or all agencies that fill their shape_dist_travelled field in GTFS
+            // Divide it by length to match our own interpretation of shape_dist_travelled (as a ratio)
+            ratio = ratio / this.length;
+        }
         assert(ratio >= 0.0 && ratio <= 1.0, `ratio must be between 0 and 1, got ${ratio}`);
 
         const interp_distance = this.length * ratio;
