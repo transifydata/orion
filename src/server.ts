@@ -1,12 +1,13 @@
 import express from "express";
 import morgan from "morgan";
-import {migrateDbs} from "./sinks/sqlite-sink";
+
 import cors from "cors";
 import {
   getAllRoutesWithShapes,
   Route,
 } from "./gtfs-parser";
 import getVehicleLocations from "./get-vehicle-locations";
+import {migrateDbs} from "./sinks/sqlite-tools";
 
 const app = express();
 
