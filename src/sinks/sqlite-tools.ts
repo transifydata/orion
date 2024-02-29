@@ -142,7 +142,6 @@ export async function snapshotDb(db: Database, startTime: number | undefined = u
         endTime = endTime || Date.now();
     }
 
-    // Delete the backuphenry database if it exists in Node
     await db.run("ATTACH DATABASE 'dailybackup.db' AS backup");
 
     await copyTable(db, "backup", "vehicle_position", startTime, endTime);
