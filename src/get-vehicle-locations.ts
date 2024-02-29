@@ -22,12 +22,22 @@ async function measureExecutionTime<T>(func: () => Promise<T>): Promise<{time: n
 }
 
 function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehiclePositionOutput[]): LinkedPositionsOutput {
+    /*
+    We generate a list of scheduled vehicle positions and a list of live vehicle positions. We need to associate each
+    vehicle position with each other if they are the same vehicle. To match each position:
+        - they have the same trip_id.
+        - they have the same block_id, which means they are the same vehicle but currently operating on a different trip.
+            - this happens if the live vehicle is running late but the scheduled vehicle has already started on the next trip.
+            - can also happen if the live vehicle is running early and the scheduled vehicle is still on the previous trip.
+     */
     const output: LinkedPositionsOutput = {};
 
-    const blockIdToTripId: Map<string, string> = new Map();
+    // Map block IDs from the current scheduled buses to their tripIds
+    // If we encounter the same block ID in the live data, we can use this map to find the tripId of the scheduledBus
+    const scheduledBlockIdToTripId: Map<string, string> = new Map();
 
     scheduled.forEach(sp => {
-        blockIdToTripId.set(sp.blockId, sp.tripId);
+        scheduledBlockIdToTripId.set(sp.blockId, sp.tripId);
         output[sp.tripId] = {
             scheduled: sp,
         };
@@ -37,8 +47,8 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
             output[lp.tripId] = Object.assign(output[lp.tripId], {
                 live: lp,
             });
-        } else if (blockIdToTripId.has(lp.blockId)) {
-            const mappedTripId = blockIdToTripId.get(lp.blockId)!;
+        } else if (scheduledBlockIdToTripId.has(lp.blockId)) {
+            const mappedTripId = scheduledBlockIdToTripId.get(lp.blockId)!;
             output[mappedTripId] = Object.assign(output[mappedTripId], {
                 live: lp,
             });
@@ -53,7 +63,7 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
     return output;
 }
 
-export default async function getVehicleLocations(agency: string, time: number): Promise<LinkedPositionsOutput> {
+export default async function getVehicleLocations(agency: string, time: number, joinByBlockId: boolean): Promise<LinkedPositionsOutput> {
     const {result: scheduledPositions, time: scheduledTime} = await measureExecutionTime(
         async () => await getScheduledVehicleLocations(agency, time),
     );
@@ -63,18 +73,22 @@ export default async function getVehicleLocations(agency: string, time: number):
 
     console.log("Scheduled execution time:", scheduledTime, "Live execution time:", liveTime);
 
-    const output: LinkedPositionsOutput = {};
-
-    scheduledPositions.forEach(sp => {
-        output[sp.tripId] = {
-            scheduled: sp,
-        };
-    });
-    livePositions.forEach(lp => {
-        output[lp.tripId] = Object.assign(output[lp.tripId] || {}, {
-            live: lp,
+    let output: LinkedPositionsOutput;
+    if (joinByBlockId) {
+        output = joinVehicleLocations(scheduledPositions, livePositions);
+    } else {
+        output = {}
+        scheduledPositions.forEach(sp => {
+            output[sp.tripId] = {
+                scheduled: sp,
+            };
         });
-    });
+        livePositions.forEach(lp => {
+            output[lp.tripId] = Object.assign(output[lp.tripId] || {}, {
+                live: lp,
+            });
+        });
+    }
 
     return output;
 }

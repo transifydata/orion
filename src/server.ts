@@ -1,7 +1,6 @@
 import express from "express";
 import morgan from "morgan";
-
-import { migrateDbs } from "./sinks/sqlite-sink.js";
+import {migrateDbs} from "./sinks/sqlite-sink";
 import cors from "cors";
 import {
   getAllRoutesWithShapes,
@@ -46,7 +45,8 @@ app.get('/positions/:agency', async (req, res, next) => {
 
       let response;
       if (req.query.live === "true") {
-        response = await getVehicleLocations(agency, time);
+        const joinByBlockId = req.query.joinByBlockId === "true";
+        response = await getVehicleLocations(agency, time, joinByBlockId);
       } else {
         response = await getLiveVehicleLocations(agency, time);
       }

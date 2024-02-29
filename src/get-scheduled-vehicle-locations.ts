@@ -65,7 +65,7 @@ export function getClosestStopTimes(db: BetterSqlite3.Database, time: TimeTz, tr
         const timeOfDaySecs = date.secondsOfDay() + secondsOffset;
         const timeOfDay = secondsToHHMMSS(timeOfDaySecs);
 
-        // Limit the search to (-10, +20) minutes before and after the current time
+        // Limit the search to (-30, +30) minutes before and after the current time
         // This makes the search faster as we don't have to search through the entire day for the appropriate stop
         const timeOfDayBefore = secondsToHHMMSS(timeOfDaySecs - 30 * 60);
         const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 30 * 60);

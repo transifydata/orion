@@ -69,7 +69,7 @@ LATE BUS DETECTED {
 
  */
 async function test2() {
-  console.log(await getVehicleLocations("go_transit",1709014952103));
+  console.log(await getVehicleLocations("go_transit",1709014952103, false));
                                                                   1709012365219
 }
 // await test2();
