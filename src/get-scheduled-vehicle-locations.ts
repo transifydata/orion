@@ -249,10 +249,11 @@ export function processClosestStopTimes(
             }
         } else if (beforeStopTime) {
             // Only see before, that means the scheduledTrip already ended.
+            const endDistance = feed.getShapeByTripID(beforeStopTime.trip_id).length;
             locationCalculation = {
                 currentLocation: feed.getStopLocation(beforeStopTime.stop_id),
                 heading: 0,
-                distanceAlongRoute: -1,
+                distanceAlongRoute: (beforeStopTime.shape_dist_traveled || 0) * endDistance,
                 scheduledStatus: "ended",
             }
         } else if (afterStopTime) {

@@ -51,7 +51,6 @@ app.get('/positions/:agency', async (req, res, next) => {
         response = await getLiveVehicleLocations(agency, time);
       }
 
-      console.log("Sending JSON!");
       res.json(response);
     } catch (e) {
         next(e)

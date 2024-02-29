@@ -37,19 +37,28 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
     const scheduledBlockIdToTripId: Map<string, string> = new Map();
 
     scheduled.forEach(sp => {
-        scheduledBlockIdToTripId.set(sp.blockId, sp.tripId);
+        if (sp.scheduledStatus === 'running') {
+            scheduledBlockIdToTripId.set(sp.blockId, sp.tripId);
+        }
         output[sp.tripId] = {
             scheduled: sp,
         };
     });
     live.forEach(lp => {
-        if (output.hasOwnProperty(lp.tripId)) {
+        if (lp.vid === "2015") {
+            let wtf = 5;
+        }
+        if (output.hasOwnProperty(lp.tripId) && output[lp.tripId].scheduled!.scheduledStatus === 'running') {
             output[lp.tripId] = Object.assign(output[lp.tripId], {
                 live: lp,
             });
         } else if (scheduledBlockIdToTripId.has(lp.blockId)) {
             const mappedTripId = scheduledBlockIdToTripId.get(lp.blockId)!;
             output[mappedTripId] = Object.assign(output[mappedTripId], {
+                live: lp,
+            });
+        } else if (output.hasOwnProperty(lp.tripId)) {
+            output[lp.tripId] = Object.assign(output[lp.tripId], {
                 live: lp,
             });
         } else {
@@ -60,16 +69,7 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
         }
     });
 
-    const filteredOutput: LinkedPositionsOutput = {};
-    for (const [tripId, linkedPosition] of Object.entries(output)) {
-        if (!linkedPosition.live && linkedPosition.scheduled!.scheduledStatus !== 'running') {
-            // If there's no live position and the scheduled position is not running, don't include it
-        } else {
-            filteredOutput[tripId] = linkedPosition;
-        }
-    }
-
-    return filteredOutput;
+    return output;
 }
 
 export default async function getVehicleLocations(agency: string, time: number, joinByBlockId: boolean): Promise<LinkedPositionsOutput> {
@@ -100,5 +100,14 @@ export default async function getVehicleLocations(agency: string, time: number, 
         });
     }
 
-    return output;
+    const filteredOutput: LinkedPositionsOutput = {};
+    for (const [tripId, linkedPosition] of Object.entries(output)) {
+        if (!linkedPosition.live && linkedPosition.scheduled!.scheduledStatus !== 'running') {
+            // If there's no live position and the scheduled position is not running, don't include it
+        } else {
+            filteredOutput[tripId] = linkedPosition;
+        }
+    }
+
+    return filteredOutput;
 }

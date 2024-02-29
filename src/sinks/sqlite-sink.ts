@@ -169,14 +169,15 @@ function convertToSQL(
         }),
     );
 
-    const stopTime = getClosestScheduledStopTime(feed, st, tripId, (timestamp as Long).toInt() * 1000);
-    const nextStop = stopTimeUpdate.find(a => {
-        return a.stopId == stopTime?.stop_id;
-    });
-
-    if (delay === 0 && nextStop?.departure?.delay) {
-        delay = nextStop.departure.delay;
-    }
+    // Unused because we are using calculatedDelay (via scheduledDistanceAlongRoute and actualDistanceAlongRoute)
+    // const stopTime = getClosestScheduledStopTime(feed, st, tripId, (timestamp as Long).toInt() * 1000);
+    // const nextStop = stopTimeUpdate.find(a => {
+    //     return a.stopId == stopTime?.stop_id;
+    // });
+    //
+    // if (delay === 0 && nextStop?.departure?.delay) {
+    //     delay = nextStop.departure.delay;
+    // }
 
     let scheduleRelationship = "unknown";
     if (trip.scheduleRelationship) {
