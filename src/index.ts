@@ -73,7 +73,9 @@ async function saveVehicles() {
             }
             await providerCode.getVehicles(agencyInfo).then(vehicles => {
                 return writeToSink(db, agencyInfo, unixTime, vehicles).then(() => {
-                    writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles);
+                    return writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
+                        console.error("Error saving to S3: ", e)
+                    })
                 });
             });
         } catch (e) {

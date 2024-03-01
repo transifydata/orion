@@ -79,3 +79,13 @@ If you are using Webstorm and want to use the debugger, create a Node configurat
 
 I recommend modifying this script to test out specific date edge cases (e.g. midnight). 
 
+
+## Downloading orion-database.db
+
+You can now download the remote orion-database.db file locally to view historical GTFS RT data. Since the file is upwards of 60GBs, it's infeasible to download it over SSH. But now, we are taking
+daily snapshots of this file and storing it in S3.
+
+To download and replicate a copy of the GTFS RT data available, use the script `scripts/download-db.ts`
+
+```
+tsx scripts/download-db.ts
