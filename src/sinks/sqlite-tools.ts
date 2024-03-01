@@ -2,12 +2,11 @@ import sqlite3 from "sqlite3";
 import {Database, open} from "sqlite";
 import fs, {rmSync} from "fs";
 import assert from "assert";
-import {writeToS3} from "./s3Helper";
-import {config} from "../config";
 import AWS from "aws-sdk";
 import {TimeTz} from "../Date";
 import zlib from "zlib";
 
+export const orionBackupS3Bucket = "orion-db-snapshots";
 const databasePath = (process.env["ORION_DATABASE_PATH"] || ".") + "/orion-database.db";
 let lastPruned = 0;
 
@@ -94,7 +93,7 @@ async function prepareDatabaseForExport(db: Database) {
 }
 
 
-async function uploadToS3(bucket: string, key: string, filename: string): Promise<AWS.S3.ManagedUpload.SendData> {
+async function uploadToS3(bucket: string, key: string, filename: string): Promise<AWS.S3.ManagedUpload.SendData | undefined> {
     // Create a read stream for the local file
     const fileStream = fs.createReadStream(filename);
 
@@ -118,12 +117,10 @@ async function uploadToS3(bucket: string, key: string, filename: string): Promis
         console.log("Uploading to S3...")
         data = await uploadPromise;
         console.log("File uploaded successfully. S3 location:", data.Location);
+        return data;
     } catch (err) {
         console.error("Error uploading file to S3:", err);
-        throw err;
     }
-
-    return data;
 
 }
 
@@ -134,7 +131,7 @@ function removeIfExists(filename: string) {
         // Ignore
     }
 }
-export async function snapshotDb(db: Database, startTime: number | undefined = undefined, endTime: number | undefined = undefined) {
+export async function snapshotDb(db: Database, startTime: number | undefined = undefined, endTime: number | undefined = undefined): Promise<AWS.S3.ManagedUpload.SendData | undefined> {
     /*
     Snapshots the orion-database to S3. If `startTime` is not provided, the default is the last 24 hours.
     By default, it's run every 24 hours as part of the pruneDb function.
@@ -154,10 +151,10 @@ export async function snapshotDb(db: Database, startTime: number | undefined = u
     await db.run("DETACH DATABASE backup");
 
     // Now upload the file to S3
-    const backupS3Bucket = "orion-db-snapshots";
+
 
     const currentDate = new TimeTz(startTime, "America/Toronto");
 
-    const uploadData = await uploadToS3(backupS3Bucket, `orion-backup-${currentDate.dayAsYYYYMMDD()}-${startTime}-${endTime}.db.gz`, `dailybackup.db`);
+    const uploadData = await uploadToS3(orionBackupS3Bucket, `orion-backup-${currentDate.dayAsYYYYMMDD()}-${startTime}-${endTime}.db.gz`, `dailybackup.db`);
     return uploadData;
 }
