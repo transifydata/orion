@@ -42,9 +42,40 @@ To run the API server: `yarn serve`
 
 To run the worker: `yarn start`
 
+## orion-database.db volume
+
+`yarn start` continually fetches GTFS RT data and appends it to a sqlite database `orion-database.db`. Currently, this 
+database is stored in a volume and mounted at the `/data` directory to the container (see `orion-deployment.yaml`).
+
+The volume is allocated with 150GB SSD (see `persistent-volume-claim.yaml`). To increase the size of the volume,
+you can modify the `resources.requests.storage` field in `persistent-volume-claim.yaml` and then run `kubectl apply -f kubernetes/`.
+
+To check the size of the database, SSH into any pod in `orion-api-deployment` and run `ls -lh /data`.
+
 ## Deploying a test version
 
 To deploy a test version of orion to Kubernetes without merging into master, simply push the tag "manual-deploy" to Github, and 
 that tag will be automatically deployed to Kubernetes. To reset back to previous master, push an empty commit to master or 
 re-run `orion-deploy-trigger` in Google Cloud Build.
+
+
+## Local Testing
+
+### Method 1: Run `yarn start` to populate local db
+
+Orion maintains a database of GTFS RT live vehicles feed. If you want to debug things locally, you will not have that database
+as only prod continually pulls from GTFS RT. Your own `orion-database.db` locally will be empty. To test locally, you can
+do `yarn start` for a few minutes to populate your local database with some real-time data. Then you can run `yarn serve`
+to test the local endpoints.
+
+### Method 2: Use `localtesting.ts` script
+
+Modify the `localtesting.ts` script to run the specific things you want to test. For example, feed in specific GTFS RT data 
+or get a specific feed with `UpdatingGtfsFeed.getFeed(...)`. To run the script, run `tsx src/localtesting.ts` in the terminal.
+
+If you are using Webstorm and want to use the debugger, create a Node configuration with Node parameters:
+
+`--loader tsx src/localtesting.ts`
+
+I recommend modifying this script to test out specific date edge cases (e.g. midnight). 
 

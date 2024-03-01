@@ -28,6 +28,7 @@ export function validateVehiclePosition(vehiclePosition: VehiclePositionOutput):
         terminalDepartureTime: vehiclePosition.terminalDepartureTime,
         calculatedDelay: vehiclePosition.calculatedDelay,
         distanceAlongRoute: vehiclePosition.distanceAlongRoute,
+        blockId: vehiclePosition.blockId,
     };
 }
 
@@ -44,7 +45,7 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
     const rows = await sqlVehicleLocations(db, time, agency);
 
     return rows.map(r => {
-        const tripAttr = feed.getTrips({trip_id: r.tripId}, ["direction_id", "trip_headsign"])[0];
+        const tripAttr = feed.getTrip(r.tripId, ["direction_id", "trip_headsign", "block_id"]);
         if (!tripAttr) {
             console.warn("No trip attr for", r.tripId);
         }
@@ -52,6 +53,10 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
         const scheduledDistanceAlongRoute = r.scheduledDistanceAlongRoute;
         const actualDistanceAlongRoute = r.actualDistanceAlongRoute;
 
+        if (!r.blockId) {
+            // blockId field is null for vehicle positions before the deploy
+            r.blockId = tripAttr?.block_id;
+        }
 
         // We want to show the bus delay in seconds
         // We can calculate the delay by comparing the scheduled distance along the route with the actual distance along the route
@@ -73,7 +78,7 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
             lat: parseFloat(r.lat),
             lon: parseFloat(r.lon),
             terminalDepartureTime: feed.getTerminalDepartureTime(r.tripId),
-            trip_headsign: tripAttr.trip_headsign,
+            trip_headsign: tripAttr?.trip_headsign,
             distanceAlongRoute: actualDistanceAlongRoute
         });
 

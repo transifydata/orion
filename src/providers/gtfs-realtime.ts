@@ -4,8 +4,10 @@ import request from "request";
 import axios from "axios";
 
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
+import {UpdatingGtfsFeed} from "../updating-gtfs-feed";
+import {ScheduledStatus} from "../get-scheduled-vehicle-locations";
 
-export async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
+async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
     const url = config.tripUpdatesUrl;
 
     if (!url) throw Error("No trip updates URL provided");
@@ -38,15 +40,17 @@ function isVehicle(gtfsVehiclePosition) {
     );
 }
 
-export function getVehicles(config) {
+async function getVehicles(config: Agency) {
     const url = config.gtfs_realtime_url;
     console.log("fetching vehicles from " + url);
-
     const requestSettings = {
         method: "GET",
         url: url,
         encoding: null,
     };
+
+    const gtfsFeed = await UpdatingGtfsFeed.getFeed(config.id, Date.now());
+
 
     return new Promise((resolve, reject) => {
         request(requestSettings, function (error, response, body) {
@@ -65,7 +69,7 @@ export function getVehicles(config) {
                 feed.entity.forEach(function (entity) {
                     const gtfsVehiclePosition = entity.vehicle;
                     if (isVehicle(gtfsVehiclePosition)) {
-                        vehicles.push(makeVehicle(gtfsVehiclePosition, feedTimestamp, config.gtfs_realtime_vehicle_id));
+                        vehicles.push(makeVehicle(gtfsFeed, gtfsVehiclePosition, feedTimestamp));
                     }
                 });
                 resolve(vehicles);
@@ -90,6 +94,7 @@ export interface VehiclePosition {
     secsSinceReport: number | null;
     stopId?: Value;
     label?: Value;
+    blockId: string;
 }
 
 export interface VehiclePositionOutput extends VehiclePosition {
@@ -100,9 +105,12 @@ export interface VehiclePositionOutput extends VehiclePosition {
     source: string;
     terminalDepartureTime: string;
     distanceAlongRoute: number;
+
+    // Scheduled only
+    scheduledStatus?: ScheduledStatus;
 }
 
-function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): VehiclePosition {
+function makeVehicle(gtfsFeed: UpdatingGtfsFeed, gtfsVehiclePosition, feedTimestamp): VehiclePosition {
     // GTFS-Realtime API returns vehicles like this:
     // VehiclePosition {
     //   trip: TripDescriptor { tripId: '9420711', routeId: '190' },
@@ -133,6 +141,7 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
         return Math.max(0, feedTimestamp - timestamp);
     };
 
+    const blockId: string = gtfsFeed.getTrip(trip.tripId, ['block_id'])?.block_id || "no block id";
     const orionVehicle = {
         rid: trip.routeId,
         vid: vehicle.id,
@@ -145,6 +154,7 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
         secsSinceReport: getSecsSinceReport(feedTimestamp, timestamp),
         stopId: undefined,
         label: undefined,
+        blockId
     };
 
     if (stopId != "") {
@@ -155,4 +165,8 @@ function makeVehicle(gtfsVehiclePosition, feedTimestamp, _vehicleIdKey): Vehicle
     }
 
     return orionVehicle;
+}
+
+export default {
+    getVehicles, getTripUpdates
 }

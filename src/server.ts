@@ -1,13 +1,11 @@
 import express from "express";
 import morgan from "morgan";
-
-import { migrateDbs } from "./sinks/sqlite-sink.js";
+import {migrateDbs} from "./sinks/sqlite-sink";
 import cors from "cors";
 import {
   getAllRoutesWithShapes,
   Route,
 } from "./gtfs-parser";
-import { getLiveVehicleLocations } from "./get-live-vehicle-locations";
 import getVehicleLocations from "./get-vehicle-locations";
 
 const app = express();
@@ -44,14 +42,8 @@ app.get('/positions/:agency', async (req, res, next) => {
         time = parseInt(req.query.time); // Parse the "time" parameter as an integer
       }
 
-      let response;
-      if (req.query.live === "true") {
-        response = await getVehicleLocations(agency, time);
-      } else {
-        response = await getLiveVehicleLocations(agency, time);
-      }
+        const response = await getVehicleLocations(agency, time);
 
-      console.log("Sending JSON!");
       res.json(response);
     } catch (e) {
         next(e)

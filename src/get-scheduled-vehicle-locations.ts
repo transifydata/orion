@@ -65,10 +65,10 @@ export function getClosestStopTimes(db: BetterSqlite3.Database, time: TimeTz, tr
         const timeOfDaySecs = date.secondsOfDay() + secondsOffset;
         const timeOfDay = secondsToHHMMSS(timeOfDaySecs);
 
-        // Limit the search to (-10, +20) minutes before and after the current time
+        // Limit the search to (-30, +30) minutes before and after the current time
         // This makes the search faster as we don't have to search through the entire day for the appropriate stop
-        const timeOfDayBefore = secondsToHHMMSS(timeOfDaySecs - 10 * 60);
-        const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 20 * 60);
+        const timeOfDayBefore = secondsToHHMMSS(timeOfDaySecs - 30 * 60);
+        const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 30 * 60);
         const dayofWeek = date.dayOfWeek();
         const YYYYMMDD = date.dayAsYYYYMMDD();
         return getScheduledVehicleLocationsSQL(db, YYYYMMDD, dayofWeek, timeOfDay, timeOfDayBefore, timeOfDayAfter, tripFilter);
@@ -94,11 +94,14 @@ export function getClosestStopTimes(db: BetterSqlite3.Database, time: TimeTz, tr
     }
 }
 
+export type ScheduledStatus = "running" | "not-started" | "ended";
+
 export interface StopTimesWithLocation extends ClosestStopTime {
     // Lat, lon
     currentLocation: [number, number];
     heading: number;
     distanceAlongRoute: number;
+    scheduledStatus: ScheduledStatus
 }
 
 export function processClosestStopTimes(
@@ -106,19 +109,27 @@ export function processClosestStopTimes(
     closestStopTimes: ClosestStopTime[],
     time: TimeTz,
 ): StopTimesWithLocation[] {
-    // Make pairs based on before and after closest stop times
-    const stopTimePairs: [ClosestStopTime, ClosestStopTime][] = [];
-    let i = 1;
+    // Make pairs based on before and after closest stop times. The iteration works because they are sorted by trip_id
+    const stopTimePairs: [ClosestStopTime | undefined, ClosestStopTime | undefined][] = [];
+    let i = 0;
     while (i < closestStopTimes.length) {
         if (
-            closestStopTimes[i - 1].source === "0before" &&
-            closestStopTimes[i].source === "1after" &&
-            closestStopTimes[i - 1].trip_id === closestStopTimes[i].trip_id
+            i < closestStopTimes.length - 1 &&
+            closestStopTimes[i].source === "0before" &&
+            closestStopTimes[i + 1].source === "1after" &&
+            closestStopTimes[i + 1].trip_id === closestStopTimes[i].trip_id
         ) {
             // Found a pair
-            stopTimePairs.push([closestStopTimes[i - 1], closestStopTimes[i]]);
+            stopTimePairs.push([closestStopTimes[i], closestStopTimes[i + 1]]);
             i += 2;
         } else {
+            if (closestStopTimes[i].source === "0before") {
+                // We only see the before stop, not the after stop. This means the bus is at the *end* of the trip
+                stopTimePairs.push([closestStopTimes[i], undefined]);
+            } else {
+                // We only see the after stop, not the before stop. This means the bus is at the *start* of the trip
+                stopTimePairs.push([undefined, closestStopTimes[i]]);
+            }
             i += 1;
         }
     }
@@ -127,9 +138,14 @@ export function processClosestStopTimes(
         console.warn("No stop time pairs found!", closestStopTimes);
     }
 
+    // To convert ClosestStopTime to StopTimesWithLocation, we need to calculate more fields using interpolate* functions
+    // This type contains the keys "distanceAlongRoute currentLocation heading status" that will be calculated using
+    // interpolate* functions
+    type LocationCalculationType = Omit<StopTimesWithLocation, keyof ClosestStopTime>
+
     const timeOfDaySecs = time.secondsOfDay()
 
-    function interpolateLocationSimpleLinear(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime) {
+    function interpolateLocationSimpleLinear(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime): LocationCalculationType {
         const beforeStopLocation = feed.getStopLocation(beforeStopTime.stop_id);
         const afterStopLocation = feed.getStopLocation(afterStopTime.stop_id);
 
@@ -159,10 +175,11 @@ export function processClosestStopTimes(
             currentLocation,
             heading: normalizedDirection,
             distanceAlongRoute: -1,
+            scheduledStatus: "running",
         };
     }
 
-    function interpolateLocationAlongShape(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime) {
+    function interpolateLocationAlongShape(beforeStopTime: ClosestStopTime, afterStopTime: ClosestStopTime): LocationCalculationType {
         const shape = feed.getShapeByTripID(beforeStopTime.trip_id);
 
         const beforeShapeDistTravelled = beforeStopTime.shape_dist_traveled;
@@ -214,24 +231,44 @@ export function processClosestStopTimes(
             currentLocation,
             heading: normalizedDirection,
             distanceAlongRoute: currentShapeDistTravelled * shape.length,
+            scheduledStatus: "running",
         };
     }
 
     let shapeInterpCount = 0;
-    const result = stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
-        let result: {
-            distanceAlongRoute: number;
-            currentLocation: [number, number];
-            heading: number;
-        };
+    const result: Array<StopTimesWithLocation> = stopTimePairs.map(([beforeStopTime, afterStopTime]) => {
+        let locationCalculation: LocationCalculationType
 
-        if (isDefined(beforeStopTime.shape_dist_traveled) && isDefined(afterStopTime.shape_dist_traveled)) {
-            shapeInterpCount += 1;
-            result = interpolateLocationAlongShape(beforeStopTime, afterStopTime);
+        const stopTime = beforeStopTime || afterStopTime !;
+        if (beforeStopTime && afterStopTime) {
+            if (isDefined(beforeStopTime.shape_dist_traveled) && isDefined(afterStopTime.shape_dist_traveled)) {
+                shapeInterpCount += 1;
+                locationCalculation = interpolateLocationAlongShape(beforeStopTime, afterStopTime);
+            } else {
+                locationCalculation = interpolateLocationSimpleLinear(beforeStopTime, afterStopTime);
+            }
+        } else if (beforeStopTime) {
+            // Only see before, that means the scheduledTrip already ended.
+            const endDistance = feed.getShapeByTripID(beforeStopTime.trip_id).length;
+            locationCalculation = {
+                currentLocation: feed.getStopLocation(beforeStopTime.stop_id),
+                heading: 0,
+                distanceAlongRoute: (beforeStopTime.shape_dist_traveled || 0) * endDistance,
+                scheduledStatus: "ended",
+            }
+        } else if (afterStopTime) {
+            // Only see after, that means the scheduledTrip hasn't started yet.
+            locationCalculation = {
+                currentLocation: feed.getStopLocation(afterStopTime.stop_id),
+                heading: 0,
+                distanceAlongRoute: 0,
+                scheduledStatus: "not-started",
+            }
         } else {
-            result = interpolateLocationSimpleLinear(beforeStopTime, afterStopTime);
+            throw new Error("Impossible");
         }
-        return {...beforeStopTime, ...result};
+
+        return {...stopTime, ...locationCalculation};
     });
 
     return result;
@@ -241,7 +278,7 @@ function convertClosestStopTimeToVehiclePositions(
     db: UpdatingGtfsFeed,
     st: StopTimesWithLocation,
 ): VehiclePositionOutput {
-    const {route_id: routeid, trip_headsign} = db.getTrips({trip_id: st.trip_id}, ["route_id", "trip_headsign"])[0];
+    const tripData = db.getTrip(st.trip_id, ["route_id", "trip_headsign", "block_id"]);
 
     // When the user hovers over this bus, we preferentially show the live bus location by matching trip_ids
     // If there's no live bus in the GTFS-realtime feed, we show this scheduled bus along with the message
@@ -255,20 +292,22 @@ function convertClosestStopTimeToVehiclePositions(
     const secsSinceReport = 0;
 
     return {
-        rid: routeid,
+        rid: tripData?.route_id,
         vid: vid,
         lat: st.currentLocation[0],
         lon: st.currentLocation[1],
         heading: heading,
         tripId: st.trip_id,
         stopIndex: parseInt(st.stop_sequence),
-        trip_headsign: trip_headsign,
+        trip_headsign: tripData?.trip_headsign,
         status: status,
         secsSinceReport: secsSinceReport,
         server_time: Date.now(),
         source: "scheduled",
         terminalDepartureTime: db.getTerminalDepartureTime(st.trip_id),
         distanceAlongRoute: st.distanceAlongRoute,
+        blockId: tripData?.block_id,
+        scheduledStatus: st.scheduledStatus,
     };
 }
 
@@ -315,18 +354,32 @@ export function calculateDistanceAlongRoute(
     let scheduledDistanceAlongRoute = -1;
 
     if (scheduledLocation.length === 1) {
-        console.warn("Bus is nearly ending it's journey! Skipping.", unixTime, vp.tripId, scheduledLocation);
-        return {scheduledDistanceAlongRoute: 0, actualDistanceAlongRoute: 0};
+        if (scheduledLocation[0].source === "1after") {
+            // If there's only one scheduled location and it's after the bus, that means the bus is at the start of the trip
+            // (It started early, before the first stop, hence the first stop is *after*)
+            scheduledDistanceAlongRoute = 0;
+        } else {
+            // If there's only one scheduled location and it's before the bus, that means the bus is at the end of the trip
+            // scheduledDistance is at the end, hence equal to the length of the shape
+            scheduledDistanceAlongRoute = shape.length;
+        }
     } else if (scheduledLocation.length == 0) {
-        // If we can't find a scheduled location, that means the trip has already ended. This bus is late and still not finished.
-        // scheduledDistance is at the end, hence equal to the length of the shape
-        scheduledDistanceAlongRoute = shape.length;
+        // If we can't find a scheduled location, that means the trip has already ended OR hasn't started yet.
+        const terminalDepartureTime = HHMMSSToSeconds(feed.getTerminalDepartureTime(vp.tripId));
+        if (busRecordTime.secondsOfDay() < terminalDepartureTime) {
+            // If the bus hasn't started yet, the scheduled distance is 0
+            scheduledDistanceAlongRoute = 0;
+        } else {
+            // If the bus has already ended, the scheduled distance is at the end of the shape
+            scheduledDistanceAlongRoute = shape.length;
+        }
     } else {
         assert(scheduledLocation.length == 2);
         const interpolated = processClosestStopTimes(feed, scheduledLocation, busRecordTime);
 
         scheduledDistanceAlongRoute = interpolated[0].distanceAlongRoute;
     }
+
 
     const actualLocation: Point = {
         type: "Point",

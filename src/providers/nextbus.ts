@@ -1,4 +1,6 @@
 import axios from 'axios'
+import {Agency} from "../index";
+import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 
 
 interface VehiclePosition {
@@ -64,4 +66,13 @@ function makeVehicle(nextbusObject): VehiclePosition {
         secsSinceReport: secsSinceReportInt,
         leadingVid: leadingVehicleId,
     };
+}
+
+async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
+    return []
+}
+
+export default {
+    getVehicles,
+    getTripUpdates
 }
