@@ -178,7 +178,7 @@ downloadDatabaseChunks(startDate, endDate)
         }
         return joinDatabaseChunks(databaseChunks)
     }).then(joined => {
-        console.log("Joined database chunk!", joined)
+        console.log("Database downloaded to", joined.sqlitePath)
     })
     .catch(error => {
         console.error('Error:', error);

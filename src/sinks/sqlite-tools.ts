@@ -55,7 +55,7 @@ async function copyTable(source: Database, destSchema: string, table: string, st
      */
 
     // Truncate the backup table if it exists, because we are reusing this same backup db for snapshots.
-    await source.run(`DROP TABLE IF EXISTS backup.${table}`);
+    await source.run(`TRUNCATE TABLE backup.${table}`);
 
     const rowEstimate = (await source.get(`SELECT COUNT(*) as count FROM ${table} WHERE server_time >= ? AND server_time <= ?`, startTime, endTime)).count;
     console.log("Copying table", table, "to", destSchema, "with", rowEstimate, "rows");
