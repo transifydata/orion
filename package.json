@@ -7,6 +7,7 @@
     "start": "tsx src/index.ts",
     "serve": "tsx src/server.ts",
     "build": "tsc",
+    "tsx": "tsx",
     "serve-prod": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
