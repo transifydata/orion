@@ -133,13 +133,14 @@ export async function snapshotDb(db: Database, startTime: number | undefined = u
     await copyTable(db, backupName, "trip_update", startTime, endTime);
     await db.run(`DETACH DATABASE ${backupName}`);
 
-    fs.rmSync(backupName);
 
     const currentDate = new TimeTz(startTime, "America/Toronto");
 
     // Only upload to S3 if we are prod
     if (IS_PROD) {
-        const uploadData = await uploadToS3(orionBackupS3Bucket, `orion-backup-${currentDate.dayAsYYYYMMDD()}-${startTime}-${endTime}.db.gz`, `dailybackup.db`);
+        const uploadData = await uploadToS3(orionBackupS3Bucket, `orion-backup-${currentDate.dayAsYYYYMMDD()}-${startTime}-${endTime}.db.gz`, backupName);
+        fs.rmSync(backupName);
+
         return uploadData;
     }
 }
