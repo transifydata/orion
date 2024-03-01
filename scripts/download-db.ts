@@ -1,19 +1,20 @@
-import {UpdatingGtfsFeed} from "../src/updating-gtfs-feed"
 import {TimeTz} from "../src/Date"
 import AWS from "aws-sdk";
 
-import sqlite3 from "sqlite3";
+import {Database} from "sqlite"
+import zlib from "zlib";
 
 import {openDb, orionBackupS3Bucket} from "../src/sinks/sqlite-tools"
+import fs from "fs";
 
 export class DatabaseChunk {
     sqlitePath: string;
     startTime: TimeTz;
     endTime: TimeTz;
 
-    private db: sqlite3.Database
+    private db: Database
     
-    private constructor(sqlitePath: string, startTime: TimeTz, endTime: TimeTz, db: sqlite3.Database) {
+    private constructor(sqlitePath: string, startTime: TimeTz, endTime: TimeTz, db: Database) {
         this.sqlitePath = sqlitePath;
         this.startTime = startTime;
         this.endTime = endTime;
@@ -23,9 +24,6 @@ export class DatabaseChunk {
 
     static async create(sqlitePath: string, startTime: TimeTz, endTime: TimeTz) {
         const db = await openDb(sqlitePath, false)
-        await db.migrate({
-        });
-
         return new DatabaseChunk(sqlitePath, startTime, endTime, db)
     }
     
@@ -89,32 +87,49 @@ async function listFilesInRange(startDate: TimeTz, endDate: TimeTz): Promise<str
 
 async function getDbChunk(s3Name: string): Promise<DatabaseChunk> {
     const params = {
-      Bucket: orionBackupS3Bucket, // Replace 'your-bucket-name' with your S3 bucket name
-      Key: s3Name // The name of the file you want to download from S3
+        Bucket: orionBackupS3Bucket, // Replace 'your-bucket-name' with your S3 bucket name
+        Key: s3Name // The name of the file you want to download from S3
     };
-  
-    try {
-      const data = await s3.getObject(params).promise();
-      const regex = /orion-backup-(\d+)-(\d+)-(\d+)\.db\.gz/;
-      const match = s3Name.match(regex);
-      if (match && match.length === 4) {
-        const sqlitePath = TMP_PATH + "/" + s3Name
-        const {startTime, endTime} = parseS3Name(s3Name)
 
-        return await DatabaseChunk.create( sqlitePath, startTime, endTime );
-      } else {
-        throw new Error('Invalid S3 object key format');
-      }
+    try {
+        const dataStream = s3.getObject(params).createReadStream();
+        const regex = /orion-backup-(\d+)-(\d+)-(\d+)\.db\.gz/;
+        const match = s3Name.match(regex);
+        if (match && match.length === 4) {
+            const sqlitePath = TMP_PATH + "/" + s3Name;
+            const { startTime, endTime } = parseS3Name(s3Name);
+
+            let downloadedBytes = 0;
+
+            dataStream.on('data', (chunk) => {
+                console.log(chunk)
+                downloadedBytes += chunk.length;
+                console.log(`Downloaded ${downloadedBytes} bytes for ${s3Name}...`);
+            });
+            const writeStream = fs.createWriteStream(sqlitePath);
+
+            await new Promise((resolve, reject) => {
+                dataStream
+                    .pipe(zlib.createGunzip())
+                    .pipe(writeStream)
+                    .on('finish', resolve)
+                    .on('error', reject);
+            });
+
+            return await DatabaseChunk.create(sqlitePath, startTime, endTime);
+        } else {
+            throw new Error('Invalid S3 object key format');
+        }
     } catch (error) {
-      console.error('Error downloading file from S3:', error);
-      throw error;
+        console.error('Error downloading file from S3:', error);
+        throw error;
     }
 }
-
 async function downloadDatabaseChunks(startDate: TimeTz, endDate: TimeTz) {
     const files = await listFilesInRange(startDate, endDate);
     const databaseChunks: DatabaseChunk[] = [];
 
+    console.log("Got files", files)
     for (const file of files) {
         const databaseChunk = await getDbChunk(file);
         databaseChunks.push(databaseChunk);
@@ -140,13 +155,19 @@ async function joinDatabaseChunks(chunks: Array<DatabaseChunk>): Promise<Databas
 }
 
 // Parse command line arguments
-const args = process.argv.slice(2);
-const startDate = new TimeTz(parseInt(args[0]), "America/Toronto");
-const endDate = new TimeTz(parseInt(args[1]), "America/Toronto");
-
+let startDate: TimeTz, endDate: TimeTz;
+try {
+    const args = process.argv.slice(2);
+    startDate = new TimeTz(parseInt(args[0]), "America/Toronto");
+    endDate = new TimeTz(parseInt(args[1]), "America/Toronto");
+} catch (e) {
+    startDate = new TimeTz(Date.now() - 29 * 3600 * 1000, "America/Toronto");
+    endDate = new TimeTz(Date.now(), "America/Toronto");
+}
 // Run the script
 downloadDatabaseChunks(startDate, endDate)
     .then(databaseChunks => {
+        console.log("Got database chunks", databaseChunks)
         return joinDatabaseChunks(databaseChunks)
     }).then(joined => {
         console.log("Joined database chunk!", joined)

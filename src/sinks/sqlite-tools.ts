@@ -1,16 +1,17 @@
 import sqlite3 from "sqlite3";
 import {Database, open} from "sqlite";
 import fs, {rmSync} from "fs";
-import assert from "assert";
 import AWS from "aws-sdk";
 import {TimeTz} from "../Date";
 import zlib from "zlib";
+
+import {IS_PROD} from "../config";
 
 export const orionBackupS3Bucket = "orion-db-snapshots";
 const databasePath = (process.env["ORION_DATABASE_PATH"] || ".") + "/orion-database.db";
 let lastPruned = 0;
 
-export async function openDb(path: string = databasePath, readOnly = false) {
+export async function openDb(path: string = databasePath, readOnly = false): Promise<Database> {
     /* Opens a database using the *sqlite3* library at `path`. */
     const {OPEN_READONLY, OPEN_READWRITE, OPEN_CREATE} = sqlite3;
     const mode = readOnly ? OPEN_READONLY : OPEN_READWRITE | OPEN_CREATE;
@@ -29,10 +30,6 @@ export async function migrateDbs() {
     await db.migrate();
 
     await db.run("PRAGMA journal_mode = WAL;");
-
-    await pruneDb(db, Date.now());
-
-    console.log("Finished migrations");
 }
 
 export async function pruneDb(db: Database, currentTime: number) {
@@ -62,17 +59,6 @@ async function copyTable(source: Database, destSchema: string, table: string, st
 
     const rowEstimate = (await source.get(`SELECT COUNT(*) as count FROM ${table} WHERE server_time >= ? AND server_time <= ?`, startTime, endTime)).count;
     console.log("Copying table", table, "to", destSchema, "with", rowEstimate, "rows");
-
-    const tableCreation: string = (await source.get("SELECT sql FROM sqlite_schema WHERE type='table' and name=?", table)).sql;
-    assert(tableCreation, `Table ${table} not found`);
-
-    // tableCreation is some variant of CREATE TABLE ${table} (...)
-    // Use regex to parse out the ... in between the parentheses
-    const regexPattern = /CREATE TABLE \S+ \(([^)]+)\)/;
-
-    const tableCreationParams = tableCreation.match(regexPattern)![1];
-
-    await source.run(`CREATE TABLE backup.${table} (${tableCreationParams})`);
 
     await source.run(`INSERT INTO ${destSchema}.${table} SELECT * FROM ${table} WHERE server_time >= ? AND server_time <= ?`, startTime, endTime);
 
@@ -144,6 +130,10 @@ export async function snapshotDb(db: Database, startTime: number | undefined = u
         endTime = endTime || Date.now();
     }
 
+    const backupDb = await openDb("dailybackup.db")
+    await backupDb.migrate();
+    await backupDb.close();
+
     await db.run("ATTACH DATABASE 'dailybackup.db' AS backup");
 
     await copyTable(db, "backup", "vehicle_position", startTime, endTime);
@@ -155,6 +145,9 @@ export async function snapshotDb(db: Database, startTime: number | undefined = u
 
     const currentDate = new TimeTz(startTime, "America/Toronto");
 
-    const uploadData = await uploadToS3(orionBackupS3Bucket, `orion-backup-${currentDate.dayAsYYYYMMDD()}-${startTime}-${endTime}.db.gz`, `dailybackup.db`);
-    return uploadData;
+    // Only upload to S3 if we are prod
+    if (IS_PROD) {
+        const uploadData = await uploadToS3(orionBackupS3Bucket, `orion-backup-${currentDate.dayAsYYYYMMDD()}-${startTime}-${endTime}.db.gz`, `dailybackup.db`);
+        return uploadData;
+    }
 }

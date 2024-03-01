@@ -2,12 +2,10 @@ import express from "express";
 import morgan from "morgan";
 
 import cors from "cors";
-import {
-  getAllRoutesWithShapes,
-  Route,
-} from "./gtfs-parser";
+import {getAllRoutesWithShapes, Route} from "./gtfs-parser";
 import getVehicleLocations from "./get-vehicle-locations";
 import {migrateDbs, openDb, snapshotDb} from "./sinks/sqlite-tools";
+import {IS_PROD} from "./config";
 
 const app = express();
 
@@ -51,7 +49,7 @@ app.get('/positions/:agency', async (req, res, next) => {
     }
 });
 
-const IS_PROD = process.env.NODE_ENV === "production";
+console.log("IS_PROD", IS_PROD)
 app.get('/snapshot', async (req, res) => {
     const auth = req.headers.authorization;
     if (IS_PROD && auth !== process.env.SNAPSHOT_AUTH) {
