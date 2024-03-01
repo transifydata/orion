@@ -59,8 +59,13 @@ app.get('/snapshot', async (req, res) => {
     const startTime: number | undefined = typeof req.query.startTime === "string" ? parseInt(req.query.startTime) : undefined
     const endTime: number | undefined = typeof req.query.endTime === "string" ? parseInt(req.query.endTime) : undefined
 
-    const uploadData = await snapshotDb(await openDb(), startTime, endTime)
-    res.json(uploadData);
+    try {
+        const uploadData = await snapshotDb(await openDb(), startTime, endTime)
+        res.json(uploadData);
+    } catch (e) {
+        console.error("Error taking snapshot: ", e)
+        res.status(500).json({error: e.message})
+    }
 })
 
 app.get('/', async (req, res) => {
@@ -73,10 +78,11 @@ app.get('/reset', async (req, res) => {
 
 
 function errorHandler (err, req, res, next) {
+    console.log("error handler")
     res.json({ error: err.message })
 }
 function logErrors (err, req, res, next) {
-    console.error("ERROR", err.stack, err)
+    console.error("ERROR1", err.stack, err)
     next(err)
 }
 
