@@ -6,7 +6,6 @@ import {
   getAllRoutesWithShapes,
   Route,
 } from "./gtfs-parser";
-import { getLiveVehicleLocations } from "./get-live-vehicle-locations";
 import getVehicleLocations from "./get-vehicle-locations";
 
 const app = express();
@@ -43,13 +42,7 @@ app.get('/positions/:agency', async (req, res, next) => {
         time = parseInt(req.query.time); // Parse the "time" parameter as an integer
       }
 
-      let response;
-      if (req.query.live === "true") {
-        const joinByBlockId = req.query.joinByBlockId === "true";
-        response = await getVehicleLocations(agency, time, joinByBlockId);
-      } else {
-        response = await getLiveVehicleLocations(agency, time);
-      }
+        const response = await getVehicleLocations(agency, time);
 
       res.json(response);
     } catch (e) {

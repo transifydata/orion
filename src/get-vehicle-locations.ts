@@ -53,9 +53,6 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
     }
 
     live.forEach(lp => {
-        if (lp.vid === "2015") {
-            let wtf = 5;
-        }
         if (output.hasOwnProperty(lp.tripId) && output[lp.tripId].scheduled!.scheduledStatus === 'running') {
             output[lp.tripId] = Object.assign(output[lp.tripId], {
                 live: lp,
@@ -84,7 +81,7 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
     return output;
 }
 
-export default async function getVehicleLocations(agency: string, time: number, joinByBlockId: boolean): Promise<LinkedPositionsOutput> {
+export default async function getVehicleLocations(agency: string, time: number): Promise<LinkedPositionsOutput> {
     const {result: scheduledPositions, time: scheduledTime} = await measureExecutionTime(
         async () => await getScheduledVehicleLocations(agency, time),
     );
@@ -94,23 +91,7 @@ export default async function getVehicleLocations(agency: string, time: number, 
 
     console.log("Scheduled execution time:", scheduledTime, "Live execution time:", liveTime);
 
-    let output: LinkedPositionsOutput;
-    if (joinByBlockId) {
-        console.log("Joining by block ID")
-        output = joinVehicleLocations(scheduledPositions, livePositions);
-    } else {
-        output = {}
-        scheduledPositions.forEach(sp => {
-            output[sp.tripId] = {
-                scheduled: {...sp, matchKey: sp.tripId},
-            };
-        });
-        livePositions.forEach(lp => {
-            output[lp.tripId] = Object.assign(output[lp.tripId] || {}, {
-                live: {...lp, matchKey: lp.tripId},
-            });
-        });
-    }
+    const output = joinVehicleLocations(scheduledPositions, livePositions);
 
     const filteredOutput: LinkedPositionsOutput = {};
     for (const [tripId, linkedPosition] of Object.entries(output)) {
