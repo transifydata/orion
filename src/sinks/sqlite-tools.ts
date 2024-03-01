@@ -55,7 +55,7 @@ async function copyTable(source: Database, destSchema: string, table: string, st
      */
 
     // Truncate the backup table if it exists, because we are reusing this same backup db for snapshots.
-    await source.run(`TRUNCATE TABLE backup.${table}`);
+    await source.run(`DELETE FROM backup.${table}`);
 
     const rowEstimate = (await source.get(`SELECT COUNT(*) as count FROM ${table} WHERE server_time >= ? AND server_time <= ?`, startTime, endTime)).count;
     console.log("Copying table", table, "to", destSchema, "with", rowEstimate, "rows");
@@ -130,9 +130,9 @@ export async function snapshotDb(db: Database, startTime: number | undefined = u
         endTime = endTime || Date.now();
     }
 
+
     const backupDb = await openDb("dailybackup.db")
     await backupDb.migrate();
-    await backupDb.close();
 
     await db.run("ATTACH DATABASE 'dailybackup.db' AS backup");
 
