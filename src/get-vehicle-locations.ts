@@ -2,9 +2,10 @@ import {getScheduledVehicleLocations} from "./get-scheduled-vehicle-locations";
 import {getLiveVehicleLocations} from "./get-live-vehicle-locations";
 import {VehiclePositionOutput} from "./providers/gtfs-realtime";
 
+type FinalMatchedPosition = VehiclePositionOutput & {matchKey: string};
 export interface LinkedPosition {
-    live?: VehiclePositionOutput;
-    scheduled?: VehiclePositionOutput;
+    live?: FinalMatchedPosition;
+    scheduled?: FinalMatchedPosition;
 }
 
 export interface LinkedPositionsOutput {
@@ -41,9 +42,16 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
             scheduledBlockIdToTripId.set(sp.blockId, sp.tripId);
         }
         output[sp.tripId] = {
-            scheduled: sp,
+            // Fill in matchKey later once we fully match buses
+            scheduled: {...sp, matchKey: sp.tripId},
         };
     });
+
+    const setMatchKey = (key: string) => {
+        output[key].live!.matchKey = key;
+        output[key].scheduled!.matchKey = key;
+    }
+
     live.forEach(lp => {
         if (lp.vid === "2015") {
             let wtf = 5;
@@ -52,20 +60,24 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
             output[lp.tripId] = Object.assign(output[lp.tripId], {
                 live: lp,
             });
+            setMatchKey(lp.tripId);
         } else if (scheduledBlockIdToTripId.has(lp.blockId)) {
             const mappedTripId = scheduledBlockIdToTripId.get(lp.blockId)!;
-            output[mappedTripId] = Object.assign(output[mappedTripId], {
+            output[lp.blockId] = Object.assign(output[mappedTripId], {
                 live: lp,
             });
+            delete output[mappedTripId];
+            setMatchKey(lp.blockId);
         } else if (output.hasOwnProperty(lp.tripId)) {
             output[lp.tripId] = Object.assign(output[lp.tripId], {
                 live: lp,
             });
+            setMatchKey(lp.tripId);
         } else {
             console.warn("No scheduled trip for live trip", lp);
             output[lp.tripId] = {
-                live: lp,
-            }
+                live: {...lp, matchKey: lp.tripId},
+            };
         }
     });
 
@@ -90,12 +102,12 @@ export default async function getVehicleLocations(agency: string, time: number, 
         output = {}
         scheduledPositions.forEach(sp => {
             output[sp.tripId] = {
-                scheduled: sp,
+                scheduled: {...sp, matchKey: sp.tripId},
             };
         });
         livePositions.forEach(lp => {
             output[lp.tripId] = Object.assign(output[lp.tripId] || {}, {
-                live: lp,
+                live: {...lp, matchKey: lp.tripId},
             });
         });
     }
