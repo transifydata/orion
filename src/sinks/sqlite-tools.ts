@@ -16,11 +16,16 @@ export async function openDb(path: string = databasePath, readOnly = false): Pro
     const {OPEN_READONLY, OPEN_READWRITE, OPEN_CREATE} = sqlite3;
     const mode = readOnly ? OPEN_READONLY : OPEN_READWRITE | OPEN_CREATE;
 
-    return open({
-        filename: path,
-        mode,
-        driver: sqlite3.cached.Database,
-    });
+    try {
+        return open({
+            filename: path,
+            mode,
+            driver: sqlite3.cached.Database,
+        });
+    } catch (e) {
+        console.error("Error opening database:", e);
+        throw e;
+    }
 }
 
 export async function migrateDbs() {
@@ -55,7 +60,7 @@ async function copyTable(source: Database, destSchema: string, table: string, st
      */
 
     // Truncate the backup table if it exists, because we are reusing this same backup db for snapshots.
-    await source.run(`DELETE FROM backup.${table}`);
+    await source.run(`DELETE FROM ${destSchema}.${table}`);
 
     const rowEstimate = (await source.get(`SELECT COUNT(*) as count FROM ${table} WHERE server_time >= ? AND server_time <= ?`, startTime, endTime)).count;
     console.log("Copying table", table, "to", destSchema, "with", rowEstimate, "rows");
@@ -65,19 +70,6 @@ async function copyTable(source: Database, destSchema: string, table: string, st
 }
 
 const s3 = new AWS.S3();
-
-async function prepareDatabaseForExport(db: Database) {
-    // The WAL holds the most recent, non-flushed changes to the database
-    // Flush the WAL to the database file
-    await db.run("PRAGMA wal_checkpoint(FULL)");
-
-    // VACUUM rewrites the database file, repacking it into a minimal amount of disk space by deleting free pages
-    await db.run("VACUUM");
-    await db.run("BEGIN EXCLUSIVE");
-
-
-}
-
 
 async function uploadToS3(bucket: string, key: string, filename: string): Promise<AWS.S3.ManagedUpload.SendData | undefined> {
     // Create a read stream for the local file
@@ -131,17 +123,17 @@ export async function snapshotDb(db: Database, startTime: number | undefined = u
     }
 
 
-    const backupDb = await openDb("dailybackup.db")
+    const backupName = `backup_${startTime}_${endTime}_${Date.now()}`;
+    const backupDb = await openDb(backupName)
     await backupDb.migrate();
 
-    await db.run("ATTACH DATABASE 'dailybackup.db' AS backup");
+    await db.run(`ATTACH DATABASE ? AS ${backupName}`, backupName);
 
-    await copyTable(db, "backup", "vehicle_position", startTime, endTime);
-    await copyTable(db, "backup", "trip_update", startTime, endTime);
-    await db.run("DETACH DATABASE backup");
+    await copyTable(db, backupName, "vehicle_position", startTime, endTime);
+    await copyTable(db, backupName, "trip_update", startTime, endTime);
+    await db.run(`DETACH DATABASE ${backupName}`);
 
-    // Now upload the file to S3
-
+    fs.rmSync(backupName);
 
     const currentDate = new TimeTz(startTime, "America/Toronto");
 
