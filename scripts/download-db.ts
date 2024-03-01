@@ -92,7 +92,11 @@ async function getDbChunk(s3Name: string): Promise<DatabaseChunk> {
     };
 
     try {
-        const dataStream = s3.getObject(params).createReadStream();
+        const dataStream = s3.getObject(params).onAsync("httpDownloadProgress", (progress) => {
+            console.log("a", progress)
+            const percent = 100 * progress.loaded / parseInt(progress.total);
+            console.log(`Downloaded ${Math.round(percent)}% for ${s3Name}...`)
+        }).createReadStream();
         const regex = /orion-backup-(\d+)-(\d+)-(\d+)\.db\.gz/;
         const match = s3Name.match(regex);
         if (match && match.length === 4) {
@@ -102,9 +106,8 @@ async function getDbChunk(s3Name: string): Promise<DatabaseChunk> {
             let downloadedBytes = 0;
 
             dataStream.on('data', (chunk) => {
-                console.log(chunk)
                 downloadedBytes += chunk.length;
-                console.log(`Downloaded ${downloadedBytes} bytes for ${s3Name}...`);
+                // console.log(`Downloaded ${downloadedBytes} bytes for ${s3Name}...`);
             });
             const writeStream = fs.createWriteStream(sqlitePath);
 
@@ -158,16 +161,21 @@ async function joinDatabaseChunks(chunks: Array<DatabaseChunk>): Promise<Databas
 let startDate: TimeTz, endDate: TimeTz;
 try {
     const args = process.argv.slice(2);
-    startDate = new TimeTz(parseInt(args[0]), "America/Toronto");
-    endDate = new TimeTz(parseInt(args[1]), "America/Toronto");
+    startDate = TimeTz.fromYYYYMMDD(args[0]);
+    endDate = TimeTz.fromYYYYMMDD(args[1]);
 } catch (e) {
     startDate = new TimeTz(Date.now() - 29 * 3600 * 1000, "America/Toronto");
     endDate = new TimeTz(Date.now(), "America/Toronto");
 }
+
+console.log("Downloading database chunks from", startDate.toString(), "to", endDate.toString())
 // Run the script
 downloadDatabaseChunks(startDate, endDate)
     .then(databaseChunks => {
         console.log("Got database chunks", databaseChunks)
+        if (databaseChunks.length === 0) {
+            throw Error("No database chunks! There were no backup files matching your description")
+        }
         return joinDatabaseChunks(databaseChunks)
     }).then(joined => {
         console.log("Joined database chunk!", joined)
