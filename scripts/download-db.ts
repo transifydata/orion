@@ -92,11 +92,7 @@ async function getDbChunk(s3Name: string): Promise<DatabaseChunk> {
     };
 
     try {
-        const dataStream = s3.getObject(params).onAsync("httpDownloadProgress", (progress) => {
-            console.log("a", progress)
-            const percent = 100 * progress.loaded / parseInt(progress.total);
-            console.log(`Downloaded ${Math.round(percent)}% for ${s3Name}...`)
-        }).createReadStream();
+        const dataStream = s3.getObject(params).createReadStream();
         const regex = /orion-backup-(\d+)-(\d+)-(\d+)\.db\.gz/;
         const match = s3Name.match(regex);
         if (match && match.length === 4) {
@@ -130,13 +126,10 @@ async function getDbChunk(s3Name: string): Promise<DatabaseChunk> {
 }
 async function downloadDatabaseChunks(startDate: TimeTz, endDate: TimeTz) {
     const files = await listFilesInRange(startDate, endDate);
-    const databaseChunks: DatabaseChunk[] = [];
 
     console.log("Got files", files)
-    for (const file of files) {
-        const databaseChunk = await getDbChunk(file);
-        databaseChunks.push(databaseChunk);
-    }
+    const chunkPromises = files.map(getDbChunk)
+    const databaseChunks = await Promise.all(chunkPromises)
 
     return databaseChunks;
 }
