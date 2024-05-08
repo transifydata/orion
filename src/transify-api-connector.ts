@@ -62,7 +62,7 @@ export function getCurrentFormattedDate() {
 export async function downloadRoutesFromTransifyApi(agency: string): Promise<FeatureCollection<Geometry, Route>> {
     const response = await axios({
         method: "get",
-        url: `https://staging-api.transify.ca/api/routes?agency=${agency}&date=${getCurrentFormattedDate()}`,
+        url: `https://api.transify.ca/api/routes?agency=${agency}&date=${getCurrentFormattedDate()}`,
     });
 
     if (response.status !== 200) {
