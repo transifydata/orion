@@ -31,7 +31,7 @@ export async function migrateDbs() {
     console.log("Migrating...");
     await db.migrate();
 
-    await db.run("PRAGMA journal_mode = WAL;");
+   // await db.run("PRAGMA journal_mode = WAL;");
 
     await pruneDb(db, Date.now());
 
