@@ -29,8 +29,8 @@ export interface GtfsFeedInfoResponse {
     id: number;
 }
 async function getFeedInfoFromGtfsService(agency: string, time: number): Promise<GtfsFeedInfoResponse> {
-    const url = `https://staging-api.transify.ca/api/gtfs/urls?agency=${agency}&date=${formatDate(new Date(time))}`
-    console.log("Requesting from transify api", url)
+    const url = `https://api.transify.ca/api/gtfs/urls?agency=${agency}&date=${formatDate(new Date(time))}`;
+    console.log("Requesting from transify api", url);
     const response = await axios({
         method: "get",
         url,
@@ -51,7 +51,7 @@ async function downloadFromGtfsService(agency: string, time: number, filepath: s
 
     const response = await axios({
         method: "get",
-        url: `https://staging-api.transify.ca/api/gtfs/db?agency=${agency}&date=${formatDate(new Date(time))}`,
+        url: `https://api.transify.ca/api/gtfs/db?agency=${agency}&date=${formatDate(new Date(time))}`,
         responseType: "stream",
         onDownloadProgress: progressEvent => {
             if (!progressEvent.total) {
@@ -215,7 +215,7 @@ export class UpdatingGtfsFeed {
         const found = UpdatingGtfsFeed.AGENCY_MAP.find(agency, time);
 
         if (found === undefined) {
-            console.log("Feed not found, opening...", agency, time)
+            console.log("Feed not found, opening...", agency, time);
             const newFeed = await UpdatingGtfsFeed.openWait(agency, time);
             UpdatingGtfsFeed.AGENCY_MAP.push(newFeed);
             return newFeed;
