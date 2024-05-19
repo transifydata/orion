@@ -33,7 +33,7 @@ export async function migrateDbs() {
     console.log('Migrated db');
     await db.run("PRAGMA journal_mode = WAL;");
     console.log('enable journal mode');
-    await pruneDb(db, Date.now());
+    // await pruneDb(db, Date.now());
 
     console.log("Finished migrations");
 }
@@ -199,7 +199,7 @@ export async function writeTripUpdatesToSink(
 ) {
     const db = await openDb();
 
-    await pruneDb(db, currentTime);
+    // await pruneDb(db, currentTime);
 
     for (const update of data) {
         const sql = convertToSQL(feed, update, currentTime, agency.id);
