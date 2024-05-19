@@ -47,7 +47,7 @@ To run the worker: `yarn start`
 `yarn start` continually fetches GTFS RT data and appends it to a sqlite database `orion-database.db`. Currently, this 
 database is stored in a volume and mounted at the `/data` directory to the container (see `orion-deployment.yaml`).
 
-The volume is allocated with 150GB SSD (see `persistent-volume-claim.yaml`). To increase the size of the volume,
+The volume is allocated with 300GB SSD (see `persistent-volume-claim.yaml`). To increase the size of the volume,
 you can modify the `resources.requests.storage` field in `persistent-volume-claim.yaml` and then run `kubectl apply -f kubernetes/`.
 
 To check the size of the database, SSH into any pod in `orion-api-deployment` and run `ls -lh /data`.
