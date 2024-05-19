@@ -95,7 +95,7 @@ function saveVehiclesRepeat() {
 
 async function start() {
     // Uncomment to load the GTFS (it's currently loaded and already exists in gtfs.db
-    await migrateDbs();
+ //   await migrateDbs();
     saveVehiclesRepeat();
 }
 

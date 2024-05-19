@@ -52,6 +52,8 @@ spec:
       - image: gcr.io/busviz/orion:latest
         imagePullPolicy: Always
         name: orion-worker
+        securityContext:
+          privileged: true
         resources:
           requests:
             cpu: 0.35
