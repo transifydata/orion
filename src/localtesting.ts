@@ -1,7 +1,8 @@
 import { UpdatingGtfsFeed } from "./updating-gtfs-feed";
-import {openDb, testing} from "./sinks/sqlite-sink";
+import {testing} from "./sinks/sqlite-sink";
 import getVehicleLocations from "./get-vehicle-locations";
 import {getScheduledVehicleLocations} from "./get-scheduled-vehicle-locations";
+import {openDb, snapshotDb} from "./sinks/sqlite-tools";
 
 const positions = {
   "scheduled": {
@@ -48,7 +49,10 @@ async function testmain() {
 
   const live = positions.live;
   const scheduled = positions.scheduled;
-
+}
+async function testdump() {
+    const orion = await openDb();
+    await snapshotDb(orion);
 }
 
 /*
@@ -76,4 +80,4 @@ async function test2() {
 
 const date = new Date();
 console.log(date);
-await test2();
+await testdump();

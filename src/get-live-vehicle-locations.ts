@@ -1,10 +1,9 @@
 import {VehiclePosition, VehiclePositionOutput} from "./providers/gtfs-realtime";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {transit_realtime} from "gtfs-realtime-bindings";
-import {openDb} from "./sinks/sqlite-sink";
 import {sqlVehicleLocations} from "./sql-vehicle-locations";
-import {Point} from "@turf/turf";
 import {isDefined} from "./get-scheduled-vehicle-locations";
+import {openDb} from "./sinks/sqlite-tools";
 
 type TripUpdate = transit_realtime.TripUpdate;
 

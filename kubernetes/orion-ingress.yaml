@@ -6,6 +6,9 @@ metadata:
     kubernetes.io/ingress.global-static-ip-name: orion-api-ip
     networking.gke.io/managed-certificates: orion-api-cert
     kubernetes.io/ingress.class: "gce"
+    nginx.org/proxy-connect-timeout: "1000"
+    nginx.org/proxy-read-timeout: "1000"
+    nginx.org/proxy-send-timeout: "1000"
 spec:
   defaultBackend:
     service:

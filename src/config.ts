@@ -40,3 +40,4 @@ export const config: {agencies: Agency[]; s3_bucket: string} = {
         // Add new agencies here:
     ],
 };
+export const IS_PROD = process.env.NODE_ENV === "production";

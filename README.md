@@ -79,3 +79,36 @@ If you are using Webstorm and want to use the debugger, create a Node configurat
 
 I recommend modifying this script to test out specific date edge cases (e.g. midnight). 
 
+
+## Downloading orion-database.db
+
+You can now download the remote orion-database.db file locally to view historical GTFS RT data. Since the file is upwards of 60GBs, it's infeasible to download it over SSH. But now, we are taking
+daily snapshots of this file and storing it in S3.
+
+To download and replicate a copy of the GTFS RT data available, use the script `scripts/download-db.ts`
+
+```
+# Download the database from a specific date range
+tsx scripts/download-db.ts {YYYYMMDD} {YYYYMMDD}
+```
+
+Once the database is downloaded, you should see a log line `Database downloaded to ${path}`. This path contains all the 
+vehicle locations from the given range. 
+
+To merge it into the main `orion-database.db` which serves production traffic, you can use the `sqlite3` command line tool.
+Refer to `mergeInto()` implementation for more details. 
+
+```
+# Merge the downloaded database into the main database
+sqlite3 orion-database.db
+
+sqlite> ATTACH 'path/to/downloaded-db.db' AS downloaded;
+sqlite> INSERT OR IGNORE INTO vehicle_position SELECT * FROM downloaded.vehicle_position;
+sqlite> INSERT OR IGNORE INTO trip_update SELECT * FROM downloaded.trip_update;
+```
+
+## Making a manual snapshot
+
+By default, snapshots are made on a daily basis inside `pruneDb()`. If you want to make a manual snapshot or backfill
+snapshots, then refer to `fetch-snapshots.ts` script.
+

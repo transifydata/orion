@@ -5,8 +5,8 @@ export class TimeTz {
     private time: Moment;
     private tz: string;
 
-    toString() {
-        return this.time.toString();
+    toDebugString() {
+        return this.time.format('YYYY-MM-DD HH:mm:ss');
     }
     constructor(time: number, tz: string) {
         this.tz = tz;
@@ -14,6 +14,15 @@ export class TimeTz {
 
         // Check that we are passing in milliseconds, not seconds since epoch
         assert(this.time.year() >= 2000 && this.time.year() < 2100, `Year invalid: ${this.time.toString()} ${time} ${tz}`);
+    }
+
+    static fromYYYYMMDD(s: string): TimeTz {
+        const parsedDate = moment(s, 'YYYYMMDD');
+        return new TimeTz(parsedDate.unix() * 1000, "America/Toronto");
+    }
+
+    unixSecs() {
+        return this.time.unix();
     }
 
     offsetSecs(x: number): TimeTz {

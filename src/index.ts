@@ -1,9 +1,10 @@
-import {migrateDbs, writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-sink";
+import {writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-sink";
 import NextBus from "./providers/nextbus";
 import Realtime from "./providers/gtfs-realtime";
 import {config} from "./config";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {writeToS3} from "./sinks/s3Helper";
+import {migrateDbs} from "./sinks/sqlite-tools";
 
 const interval = 8000; // ms
 
@@ -72,7 +73,9 @@ async function saveVehicles() {
             }
             await providerCode.getVehicles(agencyInfo).then(vehicles => {
                 return writeToSink(db, agencyInfo, unixTime, vehicles).then(() => {
-                    writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles);
+                    return writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
+                        console.error("Error saving to S3: ", e)
+                    })
                 });
             });
         } catch (e) {
