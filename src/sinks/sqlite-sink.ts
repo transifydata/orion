@@ -176,7 +176,7 @@ export async function writeTripUpdatesToSink(
 ) {
     const db = await openDb();
 
-    // await pruneDb(db, currentTime);
+    await pruneDb(db, currentTime);
 
     for (const update of data) {
         const sql = convertToSQL(feed, update, currentTime, agency.id);

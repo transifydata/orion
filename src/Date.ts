@@ -5,8 +5,8 @@ export class TimeTz {
     private time: Moment;
     private tz: string;
 
-    toString() {
-        return this.time.format('DD/MM/YY HH:mm:ss');
+    toDebugString() {
+        return this.time.format('YYYY-MM-DD HH:mm:ss');
     }
     constructor(time: number, tz: string) {
         this.tz = tz;

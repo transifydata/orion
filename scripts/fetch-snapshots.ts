@@ -1,11 +1,11 @@
 import axios, {AxiosResponse} from "axios";
 
-// Function to call the endpoint for each day period
+// Function to call the /snapshot endpoint for each day period between the start and end dates
+// This is ONLY necessary to backfill data. /snapshot is called on a daily basis by pruneDb() already.
 async function callEndpointForDays() {
     const startDate = new Date('2024-01-02');
     const endDate = new Date('2024-01-14');
     const endpoint = 'https://orion.transify.ca/snapshot';
-    // const endpoint = 'http://localhost:4000/snapshot'
     const authHeader = process.env.AUTH_SNAPSHOT;
 
     const maxConcurrentRequests = 5;

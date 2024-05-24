@@ -161,7 +161,7 @@ try {
     endDate = new TimeTz(Date.now(), "America/Toronto");
 }
 
-console.log("Downloading database chunks from", startDate.toString(), "to", endDate.toString())
+console.log("Downloading database chunks from", startDate.toDebugString(), "to", endDate.toDebugString())
 // Run the script
 downloadDatabaseChunks(startDate, endDate)
     .then(databaseChunks => {
@@ -176,14 +176,3 @@ downloadDatabaseChunks(startDate, endDate)
     .catch(error => {
         console.error('Error:', error);
     });
-
-// const databaseChunks = [
-//     await DatabaseChunk.create("o10", new TimeTz(Date.now(), "America/Toronto"), new TimeTz(Date.now(), "America/Toronto")),
-//     await DatabaseChunk.create("o1", new TimeTz(Date.now(), "America/Toronto"), new TimeTz(Date.now(), "America/Toronto")),
-//     await DatabaseChunk.create("o2", new TimeTz(Date.now(), "America/Toronto"), new TimeTz(Date.now(), "America/Toronto")),
-//     await DatabaseChunk.create("o3", new TimeTz(Date.now(), "America/Toronto"), new TimeTz(Date.now(), "America/Toronto")),
-//     await DatabaseChunk.create("o4", new TimeTz(Date.now(), "America/Toronto"), new TimeTz(Date.now(), "America/Toronto")),
-//     await DatabaseChunk.create("o5", new TimeTz(Date.now(), "America/Toronto"), new TimeTz(Date.now(), "America/Toronto")),
-// ]
-//
-// await joinDatabaseChunks(databaseChunks)

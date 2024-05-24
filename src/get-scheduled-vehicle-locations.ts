@@ -321,7 +321,7 @@ export async function getScheduledVehicleLocations(agency: string, unixTime: num
     const time = new TimeTz(unixTime, "America/Toronto");
 
     const closestStopTimes = getClosestStopTimes(gtfsDatabase, time, undefined);
-    console.log("Found", closestStopTimes.length, "closest stop times", time.toString())
+    console.log("Found", closestStopTimes.length, "closest stop times", time.toDebugString())
     const stopTimesWithLocation = processClosestStopTimes(feed, closestStopTimes, time);
 
     const positions = stopTimesWithLocation.map(st => {

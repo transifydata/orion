@@ -42,12 +42,12 @@ export async function pruneDb(db: Database, currentTime: number) {
     if (currentTime - lastPruned > 24 * 3600 * 1000) {
         console.log("Pruning...");
         lastPruned = currentTime;
-        // Prune all records older than 120 days ago
-        const prunePast = currentTime - 120 * 24 * 3600 * 1000;
-        const deletedRows1 = await db.run(`DELETE FROM trip_update WHERE server_time < ${prunePast}`);
-        const deletedRows2 = await db.run(`DELETE FROM vehicle_position WHERE server_time < ${prunePast}`);
-
-        console.log("Pruned ", deletedRows1.changes, deletedRows2.changes);
+        // // Prune all records older than 120 days ago
+        // const prunePast = currentTime - 120 * 24 * 3600 * 1000;
+        // const deletedRows1 = await db.run(`DELETE FROM trip_update WHERE server_time < ${prunePast}`);
+        // const deletedRows2 = await db.run(`DELETE FROM vehicle_position WHERE server_time < ${prunePast}`);
+        //
+        // console.log("Pruned ", deletedRows1.changes, deletedRows2.changes);
 
         await snapshotDb(db);
     }
