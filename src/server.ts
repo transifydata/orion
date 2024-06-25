@@ -20,6 +20,8 @@ app.get('/routes/:agency', async (req, res, next) => {
     try {
         const agency = req.params.agency;
 
+        // TODO - results in stale routes as GTFS changes, for instance,
+        // Brampton's Route IDs might change from 505-345 to 505-346.
         if (ROUTES_CACHE[agency] === undefined) {
             ROUTES_CACHE[agency] = await getAllRoutesWithShapes(agency);
             res.json(ROUTES_CACHE[agency]);
