@@ -14,12 +14,12 @@ export const config: {agencies: Agency[]; s3_bucket: string} = {
         //     "provider": "nextbus",
         //     "nextbus_agency_id": "ttc"
         // },
-        // {
-        //     "id": "grt",
-        //     "provider": "gtfs-realtime",
-        //     "gtfs_realtime_url": "http://webapps.regionofwaterloo.ca/api/grt-routes/api/vehiclepositions",
-        //     // "tripUpdatesUrl": "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
-        // },
+        {
+             "id": "grt",
+             "provider": "gtfs-realtime",
+             "gtfs_realtime_url": "http://webapps.regionofwaterloo.ca/api/grt-routes/api/vehiclepositions",
+             "tripUpdatesUrl": "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
+        },
         // {
         //     "id": "peterborough",
         //     "provider": "gtfs-realtime",
