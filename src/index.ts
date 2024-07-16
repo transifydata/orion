@@ -74,13 +74,14 @@ async function saveVehicles() {
             await providerCode.getVehicles(agencyInfo).then(vehicles => {
                 return writeToSink(db, agencyInfo, unixTime, vehicles).then(() => {
                     return writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
-                        console.error("Error saving to S3: ", e)
+                        console.log("Error saving to S3: ", e)
                     })
                 });
             });
         } catch (e) {
             // todo: report these errors to an error tracking service
-            console.error("Error saving vehicles / trip updates for " + agencyInfo.id + " " + e);
+            // Use console.log instead of console.error as to avoid downtime from Kubernetes restarts (10-sec or more)
+            console.log("Error saving vehicles / trip updates for " + agencyInfo.id + " " + e);
             throw e;
         }
     });
