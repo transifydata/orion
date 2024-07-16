@@ -94,7 +94,7 @@ export async function writeToSink(
         try {
             distances = calculateDistanceAlongRoute(unixTime, gtfs, vp);
         } catch (e) {
-            console.error("Error calculating distance along route", e);
+            console.error("Error calculating distance along route");
         }
         return {...vp, ...distances};
     });

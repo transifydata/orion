@@ -33,9 +33,9 @@ export const config: {agencies: Agency[]; s3_bucket: string} = {
         {
             id: "go_transit",
             provider: "gtfs-realtime",
-            tripUpdatesUrl: "http://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs.proto/Feed/TripUpdates?key=30021152",
+            tripUpdatesUrl: "https://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs/Feed/TripUpdates?key=30021152",
             gtfs_realtime_url:
-                "http://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs.proto/Feed/VehiclePosition?key=30021152",
+                "https://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs/Feed/VehiclePosition?key=30021152",
         },
         // Add new agencies here:
     ],
