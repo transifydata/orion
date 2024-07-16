@@ -82,7 +82,7 @@ async function saveVehicles() {
             // todo: report these errors to an error tracking service
             // Use console.log instead of console.error as to avoid downtime from Kubernetes restarts (10-sec or more)
             console.log("Error saving vehicles / trip updates for " + agencyInfo.id + " " + e);
-            throw e;
+            // throw e;
         }
     });
 
