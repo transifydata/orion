@@ -231,8 +231,12 @@ export class UpdatingGtfsFeed {
             "SELECT departure_time FROM stop_times WHERE trip_id=@trip_id ORDER BY CAST(stop_sequence AS INT) ASC LIMIT 1",
         );
 
-        const row = statement.get({trip_id: trip_id});
-        // @ts-ignore
+        const row = statement.get({trip_id: trip_id}) as {departure_time: string};
+
+        if (!row) {
+            return "UNKNOWN TIME";
+        }
+
         return row.departure_time;
     }
 
