@@ -14,29 +14,29 @@ export const config: {agencies: Agency[]; s3_bucket: string} = {
         //     "provider": "nextbus",
         //     "nextbus_agency_id": "ttc"
         // },
-        {
-             "id": "grt",
-             "provider": "gtfs-realtime",
-             "gtfs_realtime_url": "http://webapps.regionofwaterloo.ca/api/grt-routes/api/vehiclepositions",
-             "tripUpdatesUrl": "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
-        },
+        //{
+        //     "id": "grt",
+        //     "provider": "gtfs-realtime",
+        //     "gtfs_realtime_url": "http://webapps.regionofwaterloo.ca/api/grt-routes/api/vehiclepositions",
+        //     "tripUpdatesUrl": "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
+        //},
         // {
         //     "id": "peterborough",
         //     "provider": "gtfs-realtime",
         //     "gtfs_realtime_url": "http://pt.mapstrat.com/current/gtfrealtime_VehiclePositions.bin"
         // },
-        {
-            id: "barrie",
-            provider: "gtfs-realtime",
-            gtfs_realtime_url: "http://www.myridebarrie.ca/gtfs/GTFS_VehiclePositions.pb",
-        },
-        {
-            id: "go_transit",
-            provider: "gtfs-realtime",
-            tripUpdatesUrl: "https://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs/Feed/TripUpdates?key=30021152",
-            gtfs_realtime_url:
-                "https://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs/Feed/VehiclePosition?key=30021152",
-        },
+        //{
+        //     id: "barrie",
+        //     provider: "gtfs-realtime",
+        //     gtfs_realtime_url: "http://www.myridebarrie.ca/gtfs/GTFS_VehiclePositions.pb",
+        // },
+        //{
+        //     id: "go_transit",
+        //     provider: "gtfs-realtime",
+        //     tripUpdatesUrl: "https://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs/Feed/TripUpdates?key=30021152",
+        //     gtfs_realtime_url:
+        //         "https://api.openmetrolinx.com/OpenDataAPI/api/V1/Gtfs/Feed/VehiclePosition?key=30021152",
+        // },
         // Add new agencies here:
     ],
 };
