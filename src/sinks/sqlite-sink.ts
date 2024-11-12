@@ -92,7 +92,7 @@ export async function writeToSink(
     const dataWithDistance: Array<VehiclePosition & DistanceAlongRoute> = data.map(vp => {
         let distances: DistanceAlongRoute = {scheduledDistanceAlongRoute: -1, actualDistanceAlongRoute: -1};
         try {
-            distances = calculateDistanceAlongRoute(unixTime, gtfs, vp);
+            distances = calculateDistanceAlongRoute(unixTime, gtfs, vp, agency.id);
         } catch (e) {
             console.error("Error calculating distance along route");
         }

@@ -18,12 +18,13 @@ export function getClosestScheduledStopTime(
     delays: Record<string, number>,
     tripId: string,
     timestamp: number,
+    agency: string,
 ) {
     // We have a list of delays for each stopID, but don't know what stop the bus is currently at.
     // Iterate through all stops and find the *next* stop that the bus will arrive to.
 
     const stop_times = gtfs.getStoptimes({trip_id: tripId}, []);
-    const timeOfdaySecs = new TimeTz(timestamp, "America/Toronto").secondsOfDay();
+    const timeOfdaySecs = new TimeTz(timestamp, agency === 'metro-mn' ? 'America/Chicago' : "America/Toronto").secondsOfDay();
 
     let lastDelay = 0;
     for (const st of stop_times) {
@@ -318,7 +319,7 @@ export async function getScheduledVehicleLocations(agency: string, unixTime: num
     const gtfsDatabase = feed.db;
 
     assert(gtfsDatabase);
-    const time = new TimeTz(unixTime, "America/Toronto");
+    const time = new TimeTz(unixTime, agency === 'metro-mn' ? 'America/Chicago' : "America/Toronto");
 
     const closestStopTimes = getClosestStopTimes(gtfsDatabase, time, undefined);
     console.log("Found", closestStopTimes.length, "closest stop times", time.toDebugString())
@@ -345,8 +346,9 @@ export function calculateDistanceAlongRoute(
     unixTime: number,
     feed: UpdatingGtfsFeed,
     vp: VehiclePosition,
+    agency: string,
 ): DistanceAlongRoute {
-    const busRecordTime = new TimeTz(unixTime, "America/Toronto").offsetSecs(-1 * (vp.secsSinceReport || 0));
+    const busRecordTime = new TimeTz(unixTime, agency === 'metro-mn' ? 'America/Chicago' : "America/Toronto").offsetSecs(-1 * (vp.secsSinceReport || 0));
 
     const shape = feed.getShapeByTripID(vp.tripId);
 
