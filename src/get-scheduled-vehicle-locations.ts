@@ -3,7 +3,7 @@ import BetterSqlite3 from "better-sqlite3";
 import {VehiclePosition, VehiclePositionOutput} from "./providers/gtfs-realtime";
 import assert from "assert";
 import {getScheduledVehicleLocationsSQL} from "./sql-vehicle-locations";
-import {Point} from "@turf/turf";
+import {Point, unitsFactors} from "@turf/turf";
 import {TimeTz, secondsToHHMMSS} from "./Date";
 
 export function HHMMSSToSeconds(time) {
@@ -61,7 +61,7 @@ export function isDefined(x: any): boolean {
     return x !== null && x !== undefined;
 }
 
-export function getClosestStopTimes(db: BetterSqlite3.Database, time: TimeTz, tripFilter?: string): ClosestStopTime[] {
+export function getClosestStopTimes(db: BetterSqlite3.Database, time: TimeTz, tripFilter?: string, stopIdFilter?: string | number): ClosestStopTime[] {
     const getClosestStopTimesInner = (date: TimeTz, secondsOffset: number) => {
         const timeOfDaySecs = date.secondsOfDay() + secondsOffset;
         const timeOfDay = secondsToHHMMSS(timeOfDaySecs);
@@ -72,7 +72,7 @@ export function getClosestStopTimes(db: BetterSqlite3.Database, time: TimeTz, tr
         const timeOfDayAfter = secondsToHHMMSS(timeOfDaySecs + 30 * 60);
         const dayofWeek = date.dayOfWeek();
         const YYYYMMDD = date.dayAsYYYYMMDD();
-        return getScheduledVehicleLocationsSQL(db, YYYYMMDD, dayofWeek, timeOfDay, timeOfDayBefore, timeOfDayAfter, tripFilter);
+        return getScheduledVehicleLocationsSQL(db, YYYYMMDD, dayofWeek, timeOfDay, timeOfDayBefore, timeOfDayAfter, tripFilter, stopIdFilter);
     }
 
     const previousDay = time.offsetSecs(-24 * 3600);

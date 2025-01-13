@@ -2,13 +2,21 @@ import {LineString} from "@turf/helpers";
 import assert from "assert";
 import length from "@turf/length";
 import {along, feature, nearestPointOnLine, Point} from "@turf/turf";
+import { Stop } from "./stop";
+
 
 export class Shape {
     private readonly inner: LineString;
     readonly length: number;
+    readonly tripId: string;
+    readonly stops: Stop[];
 
-    constructor(ls: LineString) {
+    constructor(ls: LineString, tripId: string, stops: Stop[]) {
         this.inner = ls;
+        this.tripId = tripId;
+        this.stops = stops;
+        this.stops.forEach(stop => stop.setDistance(this));
+        this.stops.sort((a, b) => a.distance! - b.distance!);
 
         const feat = feature(ls);
         this.length = length(feat, {units: "meters"});
@@ -22,6 +30,9 @@ export class Shape {
             // This happens for Barrie or all agencies that fill their shape_dist_travelled field in GTFS
             // Divide it by length to match our own interpretation of shape_dist_travelled (as a ratio)
             ratio = ratio / this.length;
+        }
+        if (ratio >= 1.0 && ratio < 1.1) {
+            ratio = 1.0;
         }
         assert(ratio >= 0.0 && ratio <= 1.0, `ratio must be between 0 and 1, got ${ratio}`);
 
@@ -45,6 +56,23 @@ export class Shape {
             throw Error("nearest_point.properties.location is undefined");
         }
         return nearest_point.properties.location / this.length;
+    }
+
+    projectDistanceToStopID(distance: number): string | null {
+        // Find the stop with the largest distance that is still less than or equal to our projected distance
+        if (this.stops.length === 0) {
+            return null;
+        }
+        let bestStop = this.stops[0];
+        for (const stop of this.stops) {
+            if (stop.distance === undefined) {
+                continue;
+            }
+            if (stop.distance <= distance && (!bestStop.distance || stop.distance > bestStop.distance)) {
+                bestStop = stop;
+            }
+        }
+        return bestStop.id;
     }
 
     geojson(): LineString {

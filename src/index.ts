@@ -6,7 +6,7 @@ import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {writeToS3} from "./sinks/s3Helper";
 import {migrateDbs} from "./sinks/sqlite-tools";
 
-const interval = 8000; // ms
+const interval = 5000; // ms
 
 export interface Agency {
     id: string;
@@ -57,14 +57,14 @@ var agenciesInfo = config.agencies.map(agencyConfig => {
 
 async function saveVehicles() {
     const promises = agenciesInfo.map(async agencyInfo => {
+        const unixTime = Date.now();
+        const providerCode = providers[agencyInfo.provider];
+        let savingFailed = false;
         try {
             console.log("Working on", agencyInfo.id);
             const db = await UpdatingGtfsFeed.getFeed(agencyInfo.id, Date.now());
-            const providerCode = providers[agencyInfo.provider];
-
+            
             if (!providerCode) throw new Error("Invalid provider name");
-
-            const unixTime = Date.now();
 
             if (agencyInfo.tripUpdatesUrl !== undefined) {
                 await providerCode.getTripUpdates(agencyInfo).then(updates => {
@@ -82,7 +82,20 @@ async function saveVehicles() {
             // todo: report these errors to an error tracking service
             // Use console.log instead of console.error as to avoid downtime from Kubernetes restarts (10-sec or more)
             console.log("Error saving vehicles / trip updates for " + agencyInfo.id + " " + e);
-            // throw e;
+            savingFailed = true;
+            // throw e; 
+        }
+        if (savingFailed) {
+            try {
+                if (!providerCode) throw new Error("Invalid provider name");
+                await providerCode.getVehicles(agencyInfo).then(vehicles => {
+                    return writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
+                        console.log("Error saving to S3: ", e)
+                    });
+                });
+            } catch (e) {
+                console.log("Error saving vehicles to S3 for " + agencyInfo.id + " " + e);
+            }
         }
     });
 

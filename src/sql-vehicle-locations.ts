@@ -74,6 +74,8 @@ export function getScheduledVehicleLocationsSQL(
     timeOfDayAfter: string,
     // Optional tripId to filter by. Used when we only care about scheduled locations for a specific trip (in calculateDistanceAlongRoute)
     tripIdFilter?: string,
+    // Optional stopId to filter by - used to get the scheduled vehicle at a specific stop for calculating schedule adherence.
+    stopIdFilter?: string | number,
 ): ClosestStopTime[] {
     let allFilters: string;
 
@@ -91,7 +93,7 @@ export function getScheduledVehicleLocationsSQL(
         const serviceIdValidToday = "c.start_date <= @date AND c.end_date >= @date";
         // Default WHERE clause for filtering trips by day of the week
         const defaultDayOfWeekFilter = `
-    (c.${dayOfWeek} = 1 AND c.start_date <= @date AND c.end_date >= @date)`;
+            (c.${dayOfWeek} = 1 AND c.start_date <= @date AND c.end_date >= @date)`;
 
         const enabledExceptionFilter = `t.service_id IN (${exceptionServiceIds.enabled.map(singleQuote).join(", ")})`;
         const disabledExceptionFilter = `t.service_id NOT IN (${exceptionServiceIds.disabled
@@ -138,11 +140,12 @@ WITH eligible_trips AS (
 
 -- stop_times after the current time
 after_stops AS (
-  SELECT ROWID, trip_id, MIN(arrival_time) AS first_stop_after_selected_time
+  SELECT ROWID, trip_id, stop_id, MIN(arrival_time) AS first_stop_after_selected_time
   FROM stop_times
   WHERE arrival_time >= @timeOfDay
     AND arrival_time <= @timeOfDayAfter
     AND trip_id IN (SELECT trip_id FROM eligible_trips)
+    ${stopIdFilter ? `AND stop_id = ${singleQuote(stopIdFilter.toString())}` : ""}
   GROUP BY trip_id
 ),
 
@@ -153,6 +156,7 @@ before_stops AS (
   WHERE departure_time <= @timeOfDay
     AND departure_time >= @timeOfDayBefore
     AND trip_id IN (SELECT trip_id FROM eligible_trips)
+    ${stopIdFilter ? `AND stop_id = ${singleQuote(stopIdFilter.toString())}` : ""}
   GROUP BY trip_id
 )
 

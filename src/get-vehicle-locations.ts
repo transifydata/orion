@@ -53,6 +53,8 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
     }
 
     live.forEach(lp => {
+        
+        // if a scheduled trip is running - then the live vehicle having the same trip ID as it is matched.
         if (output.hasOwnProperty(lp.tripId) && output[lp.tripId].scheduled!.scheduledStatus === 'running') {
             output[lp.tripId] = Object.assign(output[lp.tripId], {
                 live: lp,

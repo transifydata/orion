@@ -129,7 +129,7 @@ function makeVehicle(gtfsFeed: UpdatingGtfsFeed, gtfsVehiclePosition, feedTimest
     const getSecsSinceReport = (feedTimestamp, timestamp) => {
         // Timestamps might be in milliseconds if derived from date.now or from
         // seconds if from the GTFS-RT feed.
-        if (feedTimestamp == null || timestamp == null) {
+        if (feedTimestamp == null || timestamp == null || timestamp == 0) {
             return null;
         }
         if (feedTimestamp > 2147483647) {
@@ -141,7 +141,10 @@ function makeVehicle(gtfsFeed: UpdatingGtfsFeed, gtfsVehiclePosition, feedTimest
         return Math.max(0, feedTimestamp - timestamp);
     };
 
-    const blockId: string = gtfsFeed.getTrip(trip.tripId, ['block_id'])?.block_id || "no block id";
+    let blockId: string | undefined = undefined;
+    if (gtfsFeed) {
+        blockId = gtfsFeed.getTrip(trip.tripId, ['block_id'])?.block_id || "no block id";
+    }
     const orionVehicle = {
         rid: trip.routeId,
         vid: vehicle.id,

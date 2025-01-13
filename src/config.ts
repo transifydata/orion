@@ -26,9 +26,9 @@ export const config: {agencies: Agency[]; s3_bucket: string} = {
         //     "gtfs_realtime_url": "http://pt.mapstrat.com/current/gtfrealtime_VehiclePositions.bin"
         // },
         {
-             id: "barrie",
-             provider: "gtfs-realtime",
-             gtfs_realtime_url: "http://www.myridebarrie.ca/gtfs/GTFS_VehiclePositions.pb",
+            id: "barrie",
+            provider: "gtfs-realtime",
+            gtfs_realtime_url: "http://www.myridebarrie.ca/gtfs/GTFS_VehiclePositions.pb",
         },
         {
             id: "metro-mn",

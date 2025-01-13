@@ -2,8 +2,9 @@ import {VehiclePosition, VehiclePositionOutput} from "./providers/gtfs-realtime"
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {transit_realtime} from "gtfs-realtime-bindings";
 import {sqlVehicleLocations} from "./sql-vehicle-locations";
-import {isDefined} from "./get-scheduled-vehicle-locations";
+import {getClosestStopTimes, HHMMSSToSeconds, isDefined} from "./get-scheduled-vehicle-locations";
 import {openDb} from "./sinks/sqlite-tools";
+import { TimeTz } from "./Date";
 
 type TripUpdate = transit_realtime.TripUpdate;
 
@@ -57,29 +58,59 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
             r.blockId = tripAttr?.block_id;
         }
 
-        // We want to show the bus delay in seconds
-        // We can calculate the delay by comparing the scheduled distance along the route with the actual distance along the route
-        // Then use the average bus speed (estimated at 35 km/hr) to calculate the delay in seconds
-        const AVG_BUS_SPEED_METERS_PER_SEC = 35 * 1000 / 3600; // 35 km/h * 1000 m/km / 3600 s/h (get m/s)
-        if (isDefined(scheduledDistanceAlongRoute) && isDefined(actualDistanceAlongRoute)) {
-            const distanceDelta = scheduledDistanceAlongRoute - actualDistanceAlongRoute;
+        const stopId = feed
+            .getShapeByTripID(r.tripId, true)
+            .projectDistanceToStopID(actualDistanceAlongRoute);
 
-            // time delta in seconds
-            const timeDelta = distanceDelta / AVG_BUS_SPEED_METERS_PER_SEC;
-
-            // If the bus is ahead of schedule, the time delta will be negative
-            r.calculatedDelay = timeDelta;
-        }
-
-        const vp = validateVehiclePosition({
+        let vp = validateVehiclePosition({
             ...r,
             source: "live",
             lat: parseFloat(r.lat),
             lon: parseFloat(r.lon),
             terminalDepartureTime: feed.getTerminalDepartureTime(r.tripId),
             trip_headsign: tripAttr?.trip_headsign,
-            distanceAlongRoute: actualDistanceAlongRoute
-        });
+            distanceAlongRoute: actualDistanceAlongRoute,
+            stopId: stopId || r.stopId,
+        }); 
+        const busRecordTime = new TimeTz(time, agency === 'metro-mn' ? 'America/Chicago' : "America/Toronto").offsetSecs(-1 * (r.secsSinceReport || 0));
+
+        let scheduledLocation;
+        if (vp.stopId) {
+            scheduledLocation = getClosestStopTimes(feed.db, busRecordTime, vp.tripId, vp.stopId);
+        } else {
+            console.log('No stopId for', vp.tripId, vp.vid);
+        }
+
+        if (scheduledLocation && scheduledLocation.length >= 1) {
+                // Only works if scheduled stop_time is within +/- 30-min of busRecordTime.
+                // TODO - look into that.
+
+                const scheduledTime = scheduledLocation[0].departure_time;
+                let busRecordTimeSeconds = busRecordTime.secondsOfDay();
+                let scheduledTimeSeconds = HHMMSSToSeconds(scheduledTime);
+
+                // Adjust due to HHMMSS going past 24-hours (e.g. 25:30).
+                if (scheduledTimeSeconds > 60*60*21 && busRecordTimeSeconds < 60*60*3) {
+                    busRecordTimeSeconds += 60*60*24;
+                }
+                const delay = busRecordTimeSeconds - scheduledTimeSeconds;
+                vp.calculatedDelay = delay;
+        } else {
+            console.log("No scheduled stop time found for", vp.tripId, vp.stopId, vp.vid, busRecordTime.secondsOfDay());
+            // We want to show the bus delay in seconds
+            // We can calculate the delay by comparing the scheduled distance along the route with the actual distance along the route
+            // Then use the average bus speed (estimated at 35 km/hr) to calculate the delay in seconds
+            const AVG_BUS_SPEED_METERS_PER_SEC = 35 * 1000 / 3600; // 35 km/h * 1000 m/km / 3600 s/h (get m/s)
+            if (isDefined(scheduledDistanceAlongRoute) && isDefined(actualDistanceAlongRoute)) {
+                const distanceDelta = scheduledDistanceAlongRoute - actualDistanceAlongRoute;
+
+                // time delta in seconds
+                const timeDelta = distanceDelta / AVG_BUS_SPEED_METERS_PER_SEC;
+
+                // If the bus is ahead of schedule, the time delta will be negative
+                vp.calculatedDelay = timeDelta;
+            }
+        }
 
         return vp;
     });

@@ -5,6 +5,7 @@ import {Shape} from "./shape";
 import BetterSqlite3, {Database} from "better-sqlite3";
 import {formatDate} from "./transify-api-connector";
 import {fieldList} from "aws-sdk/clients/datapipeline";
+import { Stop } from "./stop";
 
 const config = {
     sqlitePath: undefined,
@@ -240,15 +241,18 @@ export class UpdatingGtfsFeed {
         return row.departure_time;
     }
 
-    getShapeByTripID(trip_id: string): Shape {
+    getShapeByTripID(trip_id: string, get_stops: boolean = false): Shape {
         if (this.shapes_cache[trip_id]) {
             return this.shapes_cache[trip_id];
         }
-
+        
         const query = this.db.prepare(
-            `SELECT s.* FROM trips t INNER JOIN shapes s ON t.shape_id = s.shape_id WHERE
-                t.trip_id = @trip_id ORDER BY CAST(s.shape_pt_sequence as integer) ASC
-                `,
+            `SELECT s.*, t.trip_id
+             FROM trips t
+             INNER JOIN shapes s ON t.shape_id = s.shape_id
+             WHERE t.trip_id = @trip_id
+             ORDER BY CAST(s.shape_pt_sequence as integer)
+             ASC`
         );
         const rows: any[] = query.all({trip_id: trip_id});
 
@@ -264,10 +268,34 @@ export class UpdatingGtfsFeed {
             coordinates.push([asNumber(row.shape_pt_lon), asNumber(row.shape_pt_lat)]);
         }
 
+        // IDEA: get all stops of the trip_id as well and project them along the shape.
+        // then - can input the live vehicle's position
+        const stops: Stop[] = [];
+
+        if (get_stops) {
+            const stop_rows: any[] = this.db.prepare(
+                `SELECT s.stop_id, s.stop_lat, s.stop_lon 
+                FROM stops s
+                INNER JOIN stop_times st ON s.stop_id = st.stop_id
+                WHERE st.trip_id = @trip_id
+                ORDER BY CAST(st.stop_sequence as integer)
+                ASC`
+            ).all({trip_id: trip_id});
+
+            for (const stop of stop_rows) {
+                stops.push(new Stop(
+                    stop.stop_id,
+                    asNumber(stop.stop_lat),
+                    asNumber(stop.stop_lon)
+                ));
+            }
+        }
+
         this.shapes_cache[trip_id] = new Shape({
             type: "LineString",
             coordinates,
-        });
+        }, trip_id, stops);
+
         return this.shapes_cache[trip_id];
     }
 
