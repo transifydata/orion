@@ -81,6 +81,22 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
             console.log('No stopId for', vp.tripId, vp.vid);
         }
 
+        const calcDelayFromDistances = () => {
+            // We can calculate the delay by comparing the scheduled distance along the route with the actual distance along the route
+            // Then use the average bus speed (estimated at 35 km/hr) to calculate the delay in seconds
+            const AVG_BUS_SPEED_METERS_PER_SEC = 35 * 1000 / 3600; // 35 km/h * 1000 m/km / 3600 s/h (get m/s)
+            if (isDefined(scheduledDistanceAlongRoute) && isDefined(actualDistanceAlongRoute)) {
+                const distanceDelta = scheduledDistanceAlongRoute - actualDistanceAlongRoute;
+
+                // time delta in seconds
+                const timeDelta = distanceDelta / AVG_BUS_SPEED_METERS_PER_SEC;
+
+                // If the bus is ahead of schedule, the time delta will be negative
+                return timeDelta;
+            }
+            return null;
+        };
+
         if (scheduledLocation && scheduledLocation.length >= 1) {
                 // Only works if scheduled stop_time is within +/- 30-min of busRecordTime.
                 // TODO - look into that.
@@ -94,24 +110,27 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
                     busRecordTimeSeconds += 60*60*24;
                 }
                 const delay = busRecordTimeSeconds - scheduledTimeSeconds;
-                vp.calculatedDelay = delay;
+
+                const distanceDelay = calcDelayFromDistances();
+
+                if (distanceDelay !== null && Math.abs(distanceDelay) <= 60) {
+                    // Rely on the distances to estimate the delay if the actual and scheduled
+                    // vehicles are close to each other.
+                    // This is because:
+                    // 1) In some cases it will be more accurate as schedule runtimes can jump at
+                    // timepoints
+                    // 2) To address the instance where a vehicle laying over at the start of
+                    // its trip before it's scheduled to depart is reported as very early.
+                    vp.calculatedDelay = distanceDelay;
+                } else {
+                    vp.calculatedDelay = delay;
+                }
         } else {
             console.log("No scheduled stop time found for", vp.tripId, vp.stopId, vp.vid, busRecordTime.secondsOfDay());
             // We want to show the bus delay in seconds
-            // We can calculate the delay by comparing the scheduled distance along the route with the actual distance along the route
-            // Then use the average bus speed (estimated at 35 km/hr) to calculate the delay in seconds
-            const AVG_BUS_SPEED_METERS_PER_SEC = 35 * 1000 / 3600; // 35 km/h * 1000 m/km / 3600 s/h (get m/s)
-            if (isDefined(scheduledDistanceAlongRoute) && isDefined(actualDistanceAlongRoute)) {
-                const distanceDelta = scheduledDistanceAlongRoute - actualDistanceAlongRoute;
-
-                // time delta in seconds
-                const timeDelta = distanceDelta / AVG_BUS_SPEED_METERS_PER_SEC;
-
-                // If the bus is ahead of schedule, the time delta will be negative
-                vp.calculatedDelay = timeDelta;
-            }
+            vp.calculatedDelay = calcDelayFromDistances() || undefined;
         }
 
         return vp;
-    });
+    }).filter(vp => !vp.secsSinceReport || vp.secsSinceReport <= 60*5);
 }
