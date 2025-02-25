@@ -7,19 +7,27 @@ import { Stop } from "./stop";
 
 export class Shape {
     private readonly inner: LineString;
+    readonly has_stops: boolean = true;
     readonly length: number;
     readonly tripId: string;
     readonly stops: Stop[];
 
-    constructor(ls: LineString, tripId: string, stops: Stop[]) {
+    constructor(ls: LineString, tripId: string, stops: Stop[], has_stops: boolean) {
         this.inner = ls;
         this.tripId = tripId;
         this.stops = stops;
-        this.stops.forEach(stop => stop.setDistance(this));
-        this.stops.sort((a, b) => a.distance! - b.distance!);
-
+        this.has_stops = has_stops;
+        
         const feat = feature(ls);
         this.length = length(feat, {units: "meters"});
+
+        this.stops.forEach(stop => {
+            stop.distance = this.project(
+                {type: "Point", coordinates: [stop.lon, stop.lat]}
+            );
+        });
+        this.stops.sort((a, b) => a.distance! - b.distance!);
+
     }
 
     interpolate(ratio: number): [number, number] {
@@ -58,7 +66,8 @@ export class Shape {
         return nearest_point.properties.location / this.length;
     }
 
-    projectDistanceToStopID(distance: number): string | null {
+    projectDistanceToStopID(distance_meters: number): string | null {
+        const distance_ratio = distance_meters / this.length;
         // Find the stop with the largest distance that is still less than or equal to our projected distance
         if (this.stops.length === 0) {
             return null;
@@ -68,7 +77,7 @@ export class Shape {
             if (stop.distance === undefined) {
                 continue;
             }
-            if (stop.distance <= distance && (!bestStop.distance || stop.distance > bestStop.distance)) {
+            if (stop.distance <= distance_ratio && (!bestStop.distance || stop.distance > bestStop.distance)) {
                 bestStop = stop;
             }
         }
