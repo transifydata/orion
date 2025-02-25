@@ -113,7 +113,7 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
 
                 const distanceDelay = calcDelayFromDistances();
 
-                if (distanceDelay !== null && Math.abs(distanceDelay) <= 60) {
+                if (distanceDelay !== null && Math.abs(distanceDelay) <= 180) {
                     // Rely on the distances to estimate the delay if the actual and scheduled
                     // vehicles are close to each other.
                     // This is because:
