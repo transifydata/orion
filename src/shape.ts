@@ -7,14 +7,17 @@ import { Stop } from "./stop";
 
 export class Shape {
     private readonly inner: LineString;
+    readonly has_stops: boolean = true;
     readonly length: number;
     readonly tripId: string;
     readonly stops: Stop[];
 
-    constructor(ls: LineString, tripId: string, stops: Stop[]) {
+    constructor(ls: LineString, tripId: string, stops: Stop[], has_stops: boolean) {
         this.inner = ls;
         this.tripId = tripId;
         this.stops = stops;
+        this.has_stops = has_stops;
+        
         const feat = feature(ls);
         this.length = length(feat, {units: "meters"});
 

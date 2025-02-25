@@ -243,7 +243,10 @@ export class UpdatingGtfsFeed {
 
     getShapeByTripID(trip_id: string, get_stops: boolean = false): Shape {
         if (this.shapes_cache[trip_id]) {
-            return this.shapes_cache[trip_id];
+            if (!get_stops || this.shapes_cache[trip_id].has_stops) {
+                // Can only use the shapes cache if we're not getting stops, or if the shape already has stops
+                return this.shapes_cache[trip_id];
+            }
         }
         
         const query = this.db.prepare(
@@ -294,7 +297,7 @@ export class UpdatingGtfsFeed {
         this.shapes_cache[trip_id] = new Shape({
             type: "LineString",
             coordinates,
-        }, trip_id, stops);
+        }, trip_id, stops, get_stops);
 
         return this.shapes_cache[trip_id];
     }
