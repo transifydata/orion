@@ -11,10 +11,4 @@ export class Stop {
       this.lat = lat;
       this.lon = lon;
   }
-
-  setDistance(shape: Shape) {
-    this.distance = shape.project(
-        {type: "Point", coordinates: [this.lon, this.lat]}
-    );
-  }
 }
