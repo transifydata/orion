@@ -106,7 +106,6 @@ export interface VehiclePositionOutput extends VehiclePosition {
     terminalDepartureTime: string;
     distanceAlongRoute: number;
 
-    // Scheduled only
     scheduledStatus?: ScheduledStatus;
 }
 
