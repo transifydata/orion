@@ -29,6 +29,15 @@ export interface Provider {
     getTripUpdates: (config: Agency) => Promise<any>;
 }
 
+// Used for log-based metrics--we should log an easily regexable message for metrics aggregation
+function logEventWithAgency(event: string, agency: string) {
+    const jsonPayload = {
+        "event": event,
+        "agency": agency,
+    }
+    console.log(JSON.stringify(jsonPayload));
+}
+
 const providerNames = ["nextbus", "gtfs-realtime"];
 
 const providers: Record<string, Provider> = {
@@ -74,14 +83,16 @@ async function saveVehicles() {
                 return writeToSink(db, agencyInfo, unixTime, vehicles).then(() => {
                     return writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
                         console.log("Error saving to S3: ", e)
+                        throw e;
                     })
                 });
             });
 
-            console.log("Successfully saved vehicles / trip updates for " + agencyInfo.id);
+            logEventWithAgency("agency-gtfs-saved", agencyInfo.id);
         } catch (e) {
             // todo: report these errors to an error tracking service
             // Use console.log instead of console.error as to avoid downtime from Kubernetes restarts (10-sec or more)
+            logEventWithAgency("agency-gtfs-save-failed", agencyInfo.id);
             console.warn("WARN: saving vehicles / trip updates failed for " + agencyInfo.id + " " + e);
             savingFailed = true;
             // throw e; 
@@ -96,6 +107,7 @@ async function saveVehicles() {
                 });
             } catch (e) {
                 console.log("Error saving vehicles to S3 for " + agencyInfo.id + " " + e);
+                logEventWithAgency("agency-gtfs-save-s3-failed", agencyInfo.id);
             }
         }
     });
@@ -106,7 +118,6 @@ async function saveVehicles() {
 
 function saveVehiclesRepeat() {
     saveVehicles().then(() => {
-        console.log("Done running! Scheduling next one");
         setTimeout(saveVehiclesRepeat, interval);
     });
 }
