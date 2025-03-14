@@ -29,7 +29,7 @@ export interface Provider {
     getTripUpdates: (config: Agency) => Promise<any>;
 }
 
-// Used for log-based metrics--we should log an easily regexable message for metrics aggregation
+// Used for log-based metrics--if we log a JSON string, GKE logging agent parses it into a structured log
 function logEventWithAgency(event: string, agency: string) {
     const jsonPayload = {
         "event": event,
