@@ -221,7 +221,6 @@ export class UpdatingGtfsFeed {
             UpdatingGtfsFeed.AGENCY_MAP.push(newFeed);
             return newFeed;
         } else {
-            console.log("Returning feed for", agency, " ", found.valid_start, "ID", found.id);
             return found;
         }
     }
@@ -241,7 +240,7 @@ export class UpdatingGtfsFeed {
         return row.departure_time;
     }
 
-    getShapeByTripID(trip_id: string, get_stops: boolean = false): Shape {
+    getShapeByTripID(trip_id: string, get_stops: boolean = false): Shape | undefined {
         if (this.shapes_cache[trip_id]) {
             if (!get_stops || this.shapes_cache[trip_id].has_stops) {
                 // Can only use the shapes cache if we're not getting stops, or if the shape already has stops
@@ -262,9 +261,8 @@ export class UpdatingGtfsFeed {
         const coordinates: [number, number][] = [];
 
         if (rows.length == 0) {
-            const error = new Error("Couldn't find any shapes for trip" + trip_id);
-            console.error(error, trip_id);
-            throw new Error(error + ":" + trip_id);
+            // console.warn( "Couldn't find any shapes for trip", trip_id);
+            return undefined;
         }
 
         for (const row of rows) {

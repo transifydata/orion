@@ -90,14 +90,22 @@ export async function writeToSink(
     data.forEach(v => fixData(gtfs, agency.id, v));
 
     const dataWithDistance: Array<VehiclePosition & DistanceAlongRoute> = data.map(vp => {
-        let distances: DistanceAlongRoute = {scheduledDistanceAlongRoute: -1, actualDistanceAlongRoute: -1};
+        const defaultDistance: DistanceAlongRoute = {scheduledDistanceAlongRoute: -1, actualDistanceAlongRoute: -1};
         try {
-            distances = calculateDistanceAlongRoute(unixTime, gtfs, vp, agency.id);
+            let distances = calculateDistanceAlongRoute(unixTime, gtfs, vp, agency.id);
+
+            if (distances === undefined) {
+                distances = defaultDistance;
+            }
+            
+            return {...vp, ...distances};
         } catch (e) {
             console.error("Error calculating distance along route");
             console.log(e);
         }
-        return {...vp, ...distances};
+
+        return {...vp, ...defaultDistance};
+
     });
 
     await Promise.all(dataWithDistance.map(v => writeValue(db, v, unixTime, agency)));
