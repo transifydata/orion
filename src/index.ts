@@ -61,7 +61,6 @@ async function saveVehicles() {
         const providerCode = providers[agencyInfo.provider];
         let savingFailed = false;
         try {
-            console.log("Working on", agencyInfo.id);
             const db = await UpdatingGtfsFeed.getFeed(agencyInfo.id, Date.now());
             
             if (!providerCode) throw new Error("Invalid provider name");
@@ -78,10 +77,12 @@ async function saveVehicles() {
                     })
                 });
             });
+
+            console.log("Successfully saved vehicles / trip updates for " + agencyInfo.id);
         } catch (e) {
             // todo: report these errors to an error tracking service
             // Use console.log instead of console.error as to avoid downtime from Kubernetes restarts (10-sec or more)
-            console.log("Error saving vehicles / trip updates for " + agencyInfo.id + " " + e);
+            console.warn("WARN: saving vehicles / trip updates failed for " + agencyInfo.id + " " + e);
             savingFailed = true;
             // throw e; 
         }
