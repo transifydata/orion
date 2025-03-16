@@ -347,10 +347,14 @@ export function calculateDistanceAlongRoute(
     feed: UpdatingGtfsFeed,
     vp: VehiclePosition,
     agency: string,
-): DistanceAlongRoute {
+): DistanceAlongRoute | undefined {
     const busRecordTime = new TimeTz(unixTime, agency === 'metro-mn' ? 'America/Chicago' : "America/Toronto").offsetSecs(-1 * (vp.secsSinceReport || 0));
 
     const shape = feed.getShapeByTripID(vp.tripId);
+
+    if (!shape) {
+        return undefined;
+    }
 
     const scheduledLocation = getClosestStopTimes(feed.db, busRecordTime, vp.tripId);
     let scheduledDistanceAlongRoute = -1;
