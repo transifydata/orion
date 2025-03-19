@@ -58,9 +58,13 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
             r.blockId = tripAttr?.block_id;
         }
 
-        const stopId = feed
-            .getShapeByTripID(r.tripId, true)
-            .projectDistanceToStopID(actualDistanceAlongRoute);
+        const shape = feed.getShapeByTripID(r.tripId, true);
+
+        let stopId = r.stopId;
+        if (shape) {
+            stopId = shape
+                .projectDistanceToStopID(actualDistanceAlongRoute);
+        }
 
         let vp = validateVehiclePosition({
             ...r,
