@@ -14,7 +14,10 @@ async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.tran
 
     console.log("fetching trip updates from " + url);
 
-    const response = await axios.get(url, {responseType: "arraybuffer"});
+    const response = await axios.get(url, {
+        responseType: "arraybuffer",
+        timeout: 30000, // 30 seconds total timeout
+    });
 
     const feed = decodeFeedMessage(response.data);
 
@@ -50,7 +53,6 @@ async function getVehicles(config: Agency) {
     };
 
     const gtfsFeed = await UpdatingGtfsFeed.getFeed(config.id, Date.now());
-
 
     return new Promise((resolve, reject) => {
         request(requestSettings, function (error, response, body) {
