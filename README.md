@@ -112,3 +112,10 @@ sqlite> INSERT OR IGNORE INTO trip_update SELECT * FROM downloaded.trip_update;
 By default, snapshots are made on a daily basis inside `pruneDb()`. If you want to make a manual snapshot or backfill
 snapshots, then refer to `fetch-snapshots.ts` script.
 
+
+# Observability
+
+Logs: https://console.cloud.google.com/logs/query;query=resource.type%3D%22k8s_container%22%0Aresource.labels.cluster_name%3D%22metrics-mvp-cluster%22%0Aresource.labels.container_name%3D%22orion-api%22%0Aresource.labels.namespace_name%3D%22default%22%0A--Hide%20similar%20entries%0A-%2528textPayload%3D~%22GET%20%2F%20%2528%2528%3F:%5Cd%5B,.%5D%3F%2529*%5Cd%2529%20%2528%2528%3F:%5Cd%5B,.%5D%3F%2529*%5Cd%2529%20-%20%2528%2528%3F:%5Cd%5B,.%5D%3F%2529*%5Cd%2529%20ms%22%2529%0A--End%20of%20hide%20similar%20entries;cursorTimestamp=2025-03-20T17:52:30.997232586Z;duration=PT5M?referrer=search&project=busviz
+
+
+Vehicle Positions saved rate: https://console.cloud.google.com/monitoring/alerting/policies/17495653405858143773?project=busviz
