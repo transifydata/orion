@@ -1,10 +1,10 @@
-import {TimeTz} from "../src/Date.ts"
+import {TimeTz} from "../src/Date"
 import AWS from "aws-sdk";
 
 import {Database} from "sqlite"
 import zlib from "zlib";
 
-import {openDb, orionBackupS3Bucket} from "../src/sinks/sqlite-tools.ts"
+import {openDb, orionBackupS3Bucket} from "../src/sinks/sqlite-tools"
 import fs from "fs";
 
 export class DatabaseChunk {

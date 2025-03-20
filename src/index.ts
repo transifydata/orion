@@ -81,10 +81,10 @@ async function saveVehicles(agencyInfo: Agency) {
         }
         await providerCode.getVehicles(agencyInfo).then(vehicles => {
             return writeToSink(db, agencyInfo, unixTime, vehicles).then(() => {
-                // return writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
-                //     console.log("Error saving to S3: ", e)
-                //     throw e;
-                // })
+                return writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
+                    console.log("Error saving to S3: ", e)
+                    throw e;
+                })
             });
         });
 

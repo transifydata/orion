@@ -11,9 +11,6 @@ const app = express();
 
 app.use(cors())
 
-
-await migrateDbs();
-
 let ROUTES_CACHE: Record<string, Route[]> = {};
 
 app.use(morgan("tiny"));
@@ -91,7 +88,19 @@ function logErrors (err, req, res, next) {
 
 app.use(logErrors)
 app.use(errorHandler)
-app.listen(4000,() => {
-    console.log(`[server]: Server is running at http://localhost:4000`);
-})
+
+// Wrap app startup in async function
+async function startServer() {
+    try {
+        await migrateDbs();
+        app.listen(4000, () => {
+            console.log(`[server]: Server is running at http://localhost:4000`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+startServer();
 
