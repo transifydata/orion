@@ -12,7 +12,7 @@ const app = express();
 app.use(cors())
 
 
-migrateDbs();
+await migrateDbs();
 
 let ROUTES_CACHE: Record<string, Route[]> = {};
 
