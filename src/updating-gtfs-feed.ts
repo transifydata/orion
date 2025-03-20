@@ -1,11 +1,12 @@
 import fs from "fs";
-import {getStops, getStoptimes, getTrips, openDb as openDb_internal, SqlResults} from "gtfs";
+import {getStops, getStoptimes, getTrips, openDb as openDb_internal} from "gtfs";
 import axios from "axios";
 import {Shape} from "./shape";
-import BetterSqlite3, {Database} from "better-sqlite3";
+import type BetterSqlite3 from "better-sqlite3";
+import type { Database } from "better-sqlite3";
 import {formatDate} from "./transify-api-connector";
-import {fieldList} from "aws-sdk/clients/datapipeline";
 import { Stop } from "./stop";
+import type { Stop as GtfsStop, StopTime as GtfsStopTime, Trip as GtfsTrip } from "gtfs";
 
 const config = {
     sqlitePath: undefined,
@@ -98,6 +99,11 @@ function asNumber(x: any): number {
         throw new Error(`asInt: invalid type ${x} ${typeof x}`);
     }
 }
+
+function approxEquals(a: [number, number], b: [number, number]): boolean {
+    return Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
+}
+
 export class GtfsList {
     private inner: Array<UpdatingGtfsFeed> = [];
 
@@ -265,8 +271,15 @@ export class UpdatingGtfsFeed {
             return undefined;
         }
 
+        let last_point: [number, number] | undefined = undefined;
         for (const row of rows) {
-            coordinates.push([asNumber(row.shape_pt_lon), asNumber(row.shape_pt_lat)]);
+            // if we have LineString with repeated points, then turf throws a cryptic error "coordinates must be a number"
+            const point: [number, number] = [asNumber(row.shape_pt_lon), asNumber(row.shape_pt_lat)];
+            if (last_point && approxEquals(last_point, point)) {
+                continue;
+            }
+            coordinates.push(point);
+            last_point = point;
         }
 
         // IDEA: get all stops of the trip_id as well and project them along the shape.
@@ -300,7 +313,7 @@ export class UpdatingGtfsFeed {
         return this.shapes_cache[trip_id];
     }
 
-    getStops(query: Record<string, any>, fields: Array<string>): Array<Record<string, any>> {
+    getStops<Fields extends keyof GtfsStop>(query: Record<string, any>, fields: Array<Fields>): Array<Record<string, any>> {
         return getStops(query, fields, undefined, {db: this.db});
     }
 
@@ -310,10 +323,10 @@ export class UpdatingGtfsFeed {
         return [parseFloat(ret.stop_lat), parseFloat(ret.stop_lon)];
     }
 
-    getStoptimes(query: Record<string, any>, fields: Array<string>): Array<Record<string, any>> {
+    getStoptimes<Fields extends keyof GtfsStopTime>(query: Record<string, any>, fields: Array<Fields>): Array<Record<string, any>> {
         return getStoptimes(query, fields, undefined, {db: this.db});
     }
-    getTrip(tripId: string, fields: Array<string>): Record<string, any> | undefined {
+    getTrip<Fields extends keyof GtfsTrip>(tripId: string, fields: Array<Fields>): Record<string, any> | undefined {
         const result = getTrips({trip_id: tripId}, fields, undefined, {db: this.db});
         if (result.length === 0) {
             return undefined;
@@ -324,5 +337,15 @@ export class UpdatingGtfsFeed {
 
     date_contains(date: Date): boolean {
         return this.valid_start <= date && this.valid_end >= date;
+    }
+
+    getRoute(route_id: string): { route_short_name: string } | undefined {
+        const query = this.db.prepare(
+            `SELECT route_short_name
+             FROM routes
+             WHERE route_id = @route_id`
+        );
+        const row = query.get({ route_id });
+        return row as { route_short_name: string } | undefined;
     }
 }

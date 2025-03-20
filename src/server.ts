@@ -11,7 +11,8 @@ const app = express();
 
 app.use(cors())
 
-await migrateDbs();
+
+migrateDbs();
 
 let ROUTES_CACHE: Record<string, Route[]> = {};
 
@@ -66,7 +67,7 @@ app.get('/snapshot', async (req, res) => {
         res.json(uploadData);
     } catch (e) {
         console.error("Error taking snapshot: ", e)
-        res.status(500).json({error: e.message})
+        res.status(500).json({error: e instanceof Error ? e.message : "Unknown error"})
     }
 })
 

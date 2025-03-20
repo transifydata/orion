@@ -29,10 +29,11 @@ export function validateVehiclePosition(vehiclePosition: VehiclePositionOutput):
         calculatedDelay: vehiclePosition.calculatedDelay,
         distanceAlongRoute: vehiclePosition.distanceAlongRoute,
         blockId: vehiclePosition.blockId,
+        route_short_name: vehiclePosition.route_short_name,
     };
 }
 
-export interface SQLVehiclePosition extends VehiclePosition, TripUpdate {
+export interface SQLVehiclePosition extends Omit<VehiclePosition, 'lat' | 'lon'>, TripUpdate {
     lat: string;
     lon: string;
     server_time: number;
@@ -59,6 +60,7 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
         }
 
         const shape = feed.getShapeByTripID(r.tripId, true);
+        const routeData = r.rid ? feed.getRoute(r.rid) : undefined;
 
         let stopId = r.stopId;
         if (shape) {
@@ -75,7 +77,9 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
             trip_headsign: tripAttr?.trip_headsign,
             distanceAlongRoute: actualDistanceAlongRoute,
             stopId: stopId || r.stopId,
-        }); 
+            route_short_name: routeData?.route_short_name,
+        }) as VehiclePositionOutput;
+        
         const busRecordTime = new TimeTz(time, agency === 'metro-mn' ? 'America/Chicago' : "America/Toronto").offsetSecs(-1 * (r.secsSinceReport || 0));
 
         let scheduledLocation;

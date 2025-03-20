@@ -1,11 +1,11 @@
-import {Agency} from "../index.js";
+import type {Agency} from "../index";
 
 import request from "request";
 import axios from "axios";
 
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import {UpdatingGtfsFeed} from "../updating-gtfs-feed";
-import {ScheduledStatus} from "../get-scheduled-vehicle-locations";
+import type {ScheduledStatus} from "../get-scheduled-vehicle-locations";
 
 async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.transit_realtime.TripUpdate[]> {
     const url = config.tripUpdatesUrl;
@@ -87,16 +87,17 @@ export type Value = number | string;
 export interface VehiclePosition {
     rid: string;
     vid: string;
-    lat: Value;
-    lon: Value;
+    lat: number;
+    lon: number;
     heading: number;
     tripId: string;
     stopIndex: number;
-    status: Value;
+    status: string | number;
     secsSinceReport: number | null;
     stopId?: Value;
     label?: Value;
     blockId: string;
+    route_short_name?: string;
 }
 
 export interface VehiclePositionOutput extends VehiclePosition {
@@ -107,7 +108,6 @@ export interface VehiclePositionOutput extends VehiclePosition {
     source: string;
     terminalDepartureTime: string;
     distanceAlongRoute: number;
-
     scheduledStatus?: ScheduledStatus;
 }
 
@@ -142,7 +142,7 @@ function makeVehicle(gtfsFeed: UpdatingGtfsFeed, gtfsVehiclePosition, feedTimest
         return Math.max(0, feedTimestamp - timestamp);
     };
 
-    let blockId: string | undefined = undefined;
+    let blockId: string  = "no block id";
     if (gtfsFeed) {
         blockId = gtfsFeed.getTrip(trip.tripId, ['block_id'])?.block_id || "no block id";
     }

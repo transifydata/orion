@@ -1,7 +1,7 @@
-import {LineString} from "@turf/helpers";
 import assert from "assert";
 import length from "@turf/length";
-import {along, feature, nearestPointOnLine, Point} from "@turf/turf";
+import {along, feature, nearestPointOnLine} from "@turf/turf";
+import type { Point, LineString } from "geojson"
 import { Stop } from "./stop";
 
 
@@ -57,13 +57,18 @@ export class Shape {
         // The point does not have to be *on* the line--we will find the closest point
         // on the line to the given point.
 
-        const nearest_point = nearestPointOnLine(this.inner, point, {
-            units: "meters",
-        });
-        if (nearest_point.properties.location === undefined) {
-            throw Error("nearest_point.properties.location is undefined");
+        try {
+            const nearest_point = nearestPointOnLine(this.inner, point, {
+                units: "meters",
+            });
+
+            if (nearest_point.properties.location === undefined) {
+                throw Error("nearest_point.properties.location is undefined");
+            }
+            return nearest_point.properties.location / this.length;
+        } catch (e) {
+            return -1;
         }
-        return nearest_point.properties.location / this.length;
     }
 
     projectDistanceToStopID(distance_meters: number): string | null {

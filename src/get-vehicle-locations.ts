@@ -38,7 +38,7 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
     const scheduledBlockIdToTripId: Map<string, string> = new Map();
 
     scheduled.forEach(sp => {
-        if (sp.scheduledStatus === 'running') {
+        if (sp.scheduledStatus === 'running' && sp.blockId) {
             scheduledBlockIdToTripId.set(sp.blockId, sp.tripId);
         }
         output[sp.tripId] = {
