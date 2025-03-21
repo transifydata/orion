@@ -1,7 +1,7 @@
 import {getScheduledVehicleLocations} from "./get-scheduled-vehicle-locations";
 import {getLiveVehicleLocations} from "./get-live-vehicle-locations";
 import {VehiclePositionOutput} from "./providers/gtfs-realtime";
-import { logEventWithAgency } from "./logger";
+import {logEventWithAgency } from "orion-lambda/logger";
 
 type FinalMatchedPosition = VehiclePositionOutput & {matchKey: string};
 export interface LinkedPosition {

@@ -1,8 +1,8 @@
 import type {Handler} from 'aws-lambda';
 import {type Agency} from "./index.js";
 import { config } from "./config.js";
-import { logEventWithAgency } from './logger.js';
-import { writeToS3 } from './sinks/s3Helper.js';
+import { logEventWithAgency } from 'orion-lambda/logger';
+import { writeToS3 } from 'orion-lambda/s3Helper';
 import axios from 'axios';
 
 // Lambda event type for our specific use case
@@ -17,7 +17,7 @@ interface LambdaResponse {
 }
 
 // Ensure S3 bucket is configured
-const s3Bucket = process.env.S3_BUCKET;
+const s3Bucket = process.env.S3_BUCKET as string;
 if (!s3Bucket) {
     throw new Error('S3_BUCKET environment variable must be set');
 }

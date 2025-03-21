@@ -1,6 +1,9 @@
 import NextBus from "./providers/nextbus";
 import Realtime from "./providers/gtfs-realtime";
 import {config} from "./config";
+import { logEventWithAgency } from "orion-lambda/logger";
+import { writeToS3 } from "orion-lambda/s3Helper";
+console.log(logEventWithAgency, writeToS3);
 
 export const SAVE_INTERVAL = 5000; // ms
 
