@@ -3,7 +3,7 @@ import NextBus from "./providers/nextbus";
 import Realtime from "./providers/gtfs-realtime";
 import {config} from "./config";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
-import {writeToS3} from "./sinks/s3Helper.js";
+import {writeToS3} from "./sinks/s3Helper";
 import {migrateDbs} from "./sinks/sqlite-tools";
 
 const interval = 5000; // ms

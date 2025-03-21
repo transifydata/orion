@@ -33,11 +33,6 @@ export function validateVehiclePosition(vehiclePosition: VehiclePositionOutput):
     };
 }
 
-export interface SQLVehiclePosition extends Omit<VehiclePosition, 'lat' | 'lon'>, TripUpdate {
-    lat: string;
-    lon: string;
-    server_time: number;
-}
 
 export async function getLiveVehicleLocations(agency: string, time: number): Promise<VehiclePositionOutput[]> {
     const feed = await UpdatingGtfsFeed.getFeed(agency, time);
