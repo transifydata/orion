@@ -1,13 +1,11 @@
 import {writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-sink";
 import {config} from "./config";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
-import {writeToS3} from "./sinks/s3Helper";
+import {writeToS3} from "orion-lambda/s3Helper";
 import {migrateDbs} from "./sinks/sqlite-tools";
-import { logEventWithAgency } from "./logger";
+import { logEventWithAgency } from "orion-lambda/logger";
 import { Agency, providerNames, providers, SAVE_INTERVAL } from "./index";
 import { saveVehiclesToS3Only } from "./lambda";
-
-
 
 
 
