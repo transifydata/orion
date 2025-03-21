@@ -103,14 +103,11 @@
 
     /* Completeness */
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
-    "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
+    "skipLibCheck": true,                                 /* Skip type checking all .d.ts files. */
   },
   "include": [
     "src/**/*.js",
     "src/**/*.ts"
   ],
-  "ts-node": {
-    "esm": true
-  },
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", "dist"]
 }
