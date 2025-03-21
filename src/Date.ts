@@ -1,4 +1,4 @@
-import moment, {Moment} from "moment-timezone";
+import moment, { type Moment } from "moment-timezone";
 import assert from "assert";
 
 export class TimeTz {

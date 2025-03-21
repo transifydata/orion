@@ -1,19 +1,19 @@
-import {VehiclePosition} from "../providers/gtfs-realtime.js";
+import type {VehiclePosition} from "../providers/gtfs-realtime";
 
-import {Database, open} from "sqlite";
-import sqlite3 from "sqlite3";
-import {Agency} from "../index";
+import type {Database} from "sqlite";
+import type {Agency} from "../index";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
-import Long from "long";
 import {UpdatingGtfsFeed} from "../updating-gtfs-feed";
 import {
     calculateDistanceAlongRoute,
-    DistanceAlongRoute,
-    getClosestScheduledStopTime,
+    type DistanceAlongRoute,
 } from "../get-scheduled-vehicle-locations";
 import {openDb, pruneDb} from "./sqlite-tools";
-import TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
-import ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
+
+
+type TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
+// const TripUpdate = GtfsRealtimeBindings.transit_realtime.TripUpdate;
+const ScheduleRelationship = GtfsRealtimeBindings.transit_realtime.TripDescriptor.ScheduleRelationship;
 
 async function writeValue(db: Database, value: VehiclePosition, time: number, agency: Agency) {
     const rowObject = {};
@@ -111,28 +111,6 @@ export async function writeToSink(
     await Promise.all(dataWithDistance.map(v => writeValue(db, v, unixTime, agency)));
 }
 
-export async function testing() {
-    const vehiclePosition: VehiclePosition = {
-        rid: "4-343",
-        vid: "2079",
-        lat: 43.6735000,
-        lon: -79.7908100,
-        heading: 315.0,
-        tripId: "23756996-240108-MULTI-Saturday-01",
-        stopIndex: 16,
-        status: 2,
-        secsSinceReport: 74,
-        stopId: "00015670",
-        label: "2079",
-        blockId: "240108",
-    };
-
-    const feed = await UpdatingGtfsFeed.getFeed("brampton", Date.now());
-
-    console.log("LENGTH", feed.getShapeByTripID('23834827-240108-MULTI-Holiday1-01').length);
-    // const res = calculateDistanceAlongRoute(1707615780105, feed, vehiclePosition);
-    // console.log(res)
-}
 
 function convertToSQL(
     feed: UpdatingGtfsFeed,

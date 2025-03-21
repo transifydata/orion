@@ -1,5 +1,5 @@
 import axios from 'axios'
-import {Agency} from "../index";
+import type {Agency} from "../index";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 
 

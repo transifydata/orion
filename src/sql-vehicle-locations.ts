@@ -1,8 +1,8 @@
 // Various SQL scripts for getting vehicle locations from the database
 
-import {Database} from "sqlite";
-import BetterSqlite3 from "better-sqlite3";
-import {ClosestStopTime} from "./get-scheduled-vehicle-locations";
+import type {Database} from "sqlite";
+import type BetterSqlite3 from "better-sqlite3";
+import type {ClosestStopTime} from "./get-scheduled-vehicle-locations";
 
 export async function sqlVehicleLocations(db: Database, time: number, agency: string) {
     const startTimeBuffer = time - 5 * 60 * 1000;
