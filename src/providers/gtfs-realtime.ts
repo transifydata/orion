@@ -91,7 +91,7 @@ export interface VehiclePosition {
     secsSinceReport: number | null;
     stopId?: Value;
     label?: Value;
-    blockId: string;
+    blockId?: string;
     route_short_name?: string;
 }
 
@@ -137,9 +137,9 @@ function makeVehicle(gtfsFeed: UpdatingGtfsFeed, gtfsVehiclePosition, feedTimest
         return Math.max(0, feedTimestamp - timestamp);
     };
 
-    let blockId: string  = "no block id";
+    let blockId: string | undefined = undefined;
     if (gtfsFeed) {
-        blockId = gtfsFeed.getTrip(trip.tripId, ['block_id'])?.block_id || "no block id";
+        blockId = gtfsFeed.getTrip(trip.tripId, ['block_id'])?.block_id || undefined;
     }
     const orionVehicle = {
         rid: trip.routeId,

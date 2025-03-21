@@ -61,7 +61,7 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
                 live: lp,
             });
             setMatchKey(lp.tripId);
-        } else if (scheduledBlockIdToTripId.has(lp.blockId)) {
+        } else if (lp.blockId && scheduledBlockIdToTripId.has(lp.blockId)) {
             const mappedTripId = scheduledBlockIdToTripId.get(lp.blockId)!;
             output[lp.blockId] = Object.assign(output[mappedTripId], {
                 live: lp,
