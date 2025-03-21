@@ -19,8 +19,6 @@ export function writeToS3(s3Bucket, agency, currentTime, data) {
   const second = currentDateTime.getUTCSeconds();
   const s3Key = `${agency}/${year}/${month}/${day}/${hour}/${minute}/${second}/${agency}-${currentTime}.json.gz`;
 
-  console.log(`writing s3://${s3Bucket}/${s3Key}`);
-
   return compressData(data).then(encodedData => {
     return new Promise((resolve, reject) => {
       s3.putObject({

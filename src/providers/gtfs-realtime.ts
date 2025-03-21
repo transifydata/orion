@@ -1,6 +1,5 @@
 import type {Agency} from "../index";
 
-import request from "request";
 import axios from "axios";
 
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
@@ -11,8 +10,6 @@ async function getTripUpdates(config: Agency): Promise<GtfsRealtimeBindings.tran
     const url = config.tripUpdatesUrl;
 
     if (!url) throw Error("No trip updates URL provided");
-
-    console.log("fetching trip updates from " + url);
 
     const response = await axios.get(url, {
         responseType: "arraybuffer",
@@ -45,41 +42,39 @@ function isVehicle(gtfsVehiclePosition) {
 
 async function getVehicles(config: Agency) {
     const url = config.gtfs_realtime_url;
-    console.log("fetching vehicles from " + url);
-    const requestSettings = {
-        method: "GET",
-        url: url,
-        encoding: null,
-    };
+    
+    if (!url) throw Error("No GTFS realtime URL provided");
 
     const gtfsFeed = await UpdatingGtfsFeed.getFeed(config.id, Date.now());
 
-    return new Promise((resolve, reject) => {
-        request(requestSettings, function (error, response, body) {
-            if (error) {
-                reject(error);
-            } else if (response.statusCode === 200) {
-                let feed: any = decodeFeedMessage(body);
-
-                if (feed === null) {
-                    resolve([]);
-                    return;
-                }
-
-                const vehicles: VehiclePosition[] = [];
-                const feedTimestamp = Date.now();
-                feed.entity.forEach(function (entity) {
-                    const gtfsVehiclePosition = entity.vehicle;
-                    if (isVehicle(gtfsVehiclePosition)) {
-                        vehicles.push(makeVehicle(gtfsFeed, gtfsVehiclePosition, feedTimestamp));
-                    }
-                });
-                resolve(vehicles);
-            } else {
-                reject(new Error("HTTP " + response.statusCode + " fetching gtfs-realtime feed from " + url));
-            }
+    try {
+        const response = await axios.get(url, {
+            responseType: "arraybuffer",
+            timeout: 30000, // 30 seconds total timeout
         });
-    });
+
+        if (response.status === 200) {
+            let feed: any = decodeFeedMessage(response.data);
+
+            if (feed === null) {
+                return [];
+            }
+
+            const vehicles: VehiclePosition[] = [];
+            const feedTimestamp = Date.now();
+            feed.entity.forEach((entity: { vehicle: any; }) => {
+                const gtfsVehiclePosition = entity.vehicle;
+                if (isVehicle(gtfsVehiclePosition)) {
+                    vehicles.push(makeVehicle(gtfsFeed, gtfsVehiclePosition, feedTimestamp));
+                }
+            });
+            return vehicles;
+        } else {
+            throw new Error(`HTTP ${response.status} fetching gtfs-realtime feed from ${url}`);
+        }
+    } catch (error) {
+        throw error;
+    }
 }
 
 export type Value = number | string;

@@ -5,6 +5,7 @@ import {config} from "./config";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {writeToS3} from "./sinks/s3Helper";
 import {migrateDbs} from "./sinks/sqlite-tools";
+import { logEventWithAgency } from "./logger";
 
 const interval = 5000; // ms
 
@@ -29,14 +30,7 @@ export interface Provider {
     getTripUpdates: (config: Agency) => Promise<any>;
 }
 
-// Used for log-based metrics--if we log a JSON string, GKE logging agent parses it into a structured log
-function logEventWithAgency(event: string, agency: string) {
-    const jsonPayload = {
-        "event": event,
-        "agency": agency,
-    }
-    console.log(JSON.stringify(jsonPayload));
-}
+
 
 const providerNames = ["nextbus", "gtfs-realtime"];
 
@@ -71,15 +65,19 @@ async function saveVehicles(agencyInfo: Agency) {
     let savingFailed = false;
     try {
         const db = await UpdatingGtfsFeed.getFeed(agencyInfo.id, Date.now());
+        let tripUpdatesCount = 0;
+        let vehiclesCount = 0;
         
         if (!providerCode) throw new Error("Invalid provider name");
 
         if (agencyInfo.tripUpdatesUrl !== undefined) {
             await providerCode.getTripUpdates(agencyInfo).then(updates => {
+                tripUpdatesCount = updates.length;
                 return writeTripUpdatesToSink(db, agencyInfo, unixTime, updates);
             });
         }
         await providerCode.getVehicles(agencyInfo).then(vehicles => {
+            vehiclesCount = vehicles.length;
             return writeToSink(db, agencyInfo, unixTime, vehicles).then(() => {
                 return writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
                     console.log("Error saving to S3: ", e)
@@ -88,14 +86,18 @@ async function saveVehicles(agencyInfo: Agency) {
             });
         });
 
-        logEventWithAgency("agency-gtfs-saved", agencyInfo.id);
+        logEventWithAgency("agency-gtfs-saved", agencyInfo.id, {
+            tripUpdatesCount,
+            vehiclesCount,
+        });
     } catch (e) {
         // todo: report these errors to an error tracking service
-            // Use console.log instead of console.error as to avoid downtime from Kubernetes restarts (10-sec or more)
-            logEventWithAgency("agency-gtfs-save-failed", agencyInfo.id);
-            console.warn("WARN: saving vehicles / trip updates failed for " + agencyInfo.id + " " + e);
-            savingFailed = true;
-            // throw e; 
+        // Use console.log instead of console.error as to avoid downtime from Kubernetes restarts (10-sec or more)
+        logEventWithAgency("agency-gtfs-save-failed", agencyInfo.id, {
+            error: e instanceof Error ? e.message : String(e),
+        });
+        console.warn("WARN: saving vehicles / trip updates failed for " + agencyInfo.id + " " + e);
+        savingFailed = true;
     }
     if (savingFailed) {
         try {
@@ -119,6 +121,10 @@ function saveVehicleRepeatForAgency(agencyInfo: Agency) {
         .finally(() => {
             const endTime = Date.now();
             const duration = endTime - startTime;
+
+            if (interval < duration) {
+                console.log(`Saving vehicles for ${agencyInfo.id} took ${duration}ms, which is longer than the interval of ${interval}ms`);
+            }
             const waitTime = Math.max(interval - duration, 500);
             setTimeout(() => saveVehicleRepeatForAgency(agencyInfo), waitTime);
         });

@@ -1,14 +1,22 @@
-import {VehiclePosition, VehiclePositionOutput} from "./providers/gtfs-realtime";
+import {VehiclePositionOutput} from "./providers/gtfs-realtime";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
-import {transit_realtime} from "gtfs-realtime-bindings";
 import {sqlVehicleLocations} from "./sql-vehicle-locations";
 import {getClosestStopTimes, HHMMSSToSeconds, isDefined} from "./get-scheduled-vehicle-locations";
 import {openDb} from "./sinks/sqlite-tools";
 import { TimeTz } from "./Date";
 
-type TripUpdate = transit_realtime.TripUpdate;
 
 export function validateVehiclePosition(vehiclePosition: VehiclePositionOutput): VehiclePositionOutput {
+    const tripHeadsign = vehiclePosition.trip_headsign;
+    const routeShortName = vehiclePosition.route_short_name || vehiclePosition.rid;
+
+    // for metro-mn, the trip headsign doesn't include the route number (which is the route short name)
+    // so we have to manually add it
+    let newTripHeadsign = tripHeadsign;
+    if (!tripHeadsign.trimStart().startsWith(routeShortName)) {
+        newTripHeadsign = `${routeShortName} ${tripHeadsign}`;
+    }
+    
     return {
         rid: vehiclePosition.rid,
         vid: vehiclePosition.vid,
@@ -18,7 +26,7 @@ export function validateVehiclePosition(vehiclePosition: VehiclePositionOutput):
         tripId: vehiclePosition.tripId,
         stopIndex: vehiclePosition.stopIndex,
         status: vehiclePosition.status,
-        trip_headsign: vehiclePosition.trip_headsign,
+        trip_headsign: newTripHeadsign,
         secsSinceReport: vehiclePosition.secsSinceReport,
         stopId: vehiclePosition.stopId,
         label: vehiclePosition.label,
@@ -29,7 +37,7 @@ export function validateVehiclePosition(vehiclePosition: VehiclePositionOutput):
         calculatedDelay: vehiclePosition.calculatedDelay,
         distanceAlongRoute: vehiclePosition.distanceAlongRoute,
         blockId: vehiclePosition.blockId,
-        route_short_name: vehiclePosition.route_short_name,
+        scheduledStatus: vehiclePosition.scheduledStatus,
     };
 }
 
@@ -72,7 +80,9 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
             trip_headsign: tripAttr?.trip_headsign,
             distanceAlongRoute: actualDistanceAlongRoute,
             stopId: stopId || r.stopId,
-            route_short_name: routeData?.route_short_name,
+
+            // in metro-mn, route-short-name is sometimes not available, so we use the rid as fallback
+            route_short_name: routeData?.route_short_name || r.rid,
         }) as VehiclePositionOutput;
         
         const busRecordTime = new TimeTz(time, agency === 'metro-mn' ? 'America/Chicago' : "America/Toronto").offsetSecs(-1 * (r.secsSinceReport || 0));
@@ -129,7 +139,7 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
                     vp.calculatedDelay = delay;
                 }
         } else {
-            console.log("No scheduled stop time found for", vp.tripId, vp.stopId, vp.vid, busRecordTime.secondsOfDay());
+            // console.log("No scheduled stop time found for", vp.tripId, vp.stopId, vp.vid, busRecordTime.secondsOfDay());
             // We want to show the bus delay in seconds
             vp.calculatedDelay = calcDelayFromDistances() || undefined;
         }

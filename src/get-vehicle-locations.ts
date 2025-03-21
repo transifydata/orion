@@ -1,6 +1,7 @@
 import {getScheduledVehicleLocations} from "./get-scheduled-vehicle-locations";
 import {getLiveVehicleLocations} from "./get-live-vehicle-locations";
 import {VehiclePositionOutput} from "./providers/gtfs-realtime";
+import { logEventWithAgency } from "./logger";
 
 type FinalMatchedPosition = VehiclePositionOutput & {matchKey: string};
 export interface LinkedPosition {
@@ -13,6 +14,7 @@ export interface LinkedPositionsOutput {
 }
 
 async function measureExecutionTime<T>(func: () => Promise<T>): Promise<{time: number; result: T}> {
+    // Measures the time it takes to execute the provided function in milliseconds
     const startTime = performance.now();
 
     // Execute the provided function
@@ -72,7 +74,7 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
             });
             setMatchKey(lp.tripId);
         } else {
-            console.warn("No scheduled trip for live trip", lp);
+            // console.warn("No scheduled trip for live trip", lp);
             output[lp.tripId] = {
                 live: {...lp, matchKey: lp.tripId},
             };
@@ -98,6 +100,11 @@ export default async function getVehicleLocations(agency: string, time: number):
     );
 
     console.log("Scheduled execution time:", scheduledTime, "Live execution time:", liveTime);
+    logEventWithAgency("get-vehicle-locations", agency, {
+        scheduledTime,
+        liveTime,
+        time
+    });
 
     const output = joinVehicleLocations(scheduledPositions, livePositions);
 

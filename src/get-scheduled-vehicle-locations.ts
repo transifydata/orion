@@ -5,6 +5,7 @@ import assert from "assert";
 import {getScheduledVehicleLocationsSQL} from "./sql-vehicle-locations";
 import type { Point } from "geojson";
 import {TimeTz, secondsToHHMMSS} from "./Date";
+import { validateVehiclePosition } from "./get-live-vehicle-locations";
 
 export function HHMMSSToSeconds(time) {
     // Split the time string into hours, minutes, and seconds
@@ -329,7 +330,7 @@ export async function getScheduledVehicleLocations(agency: string, unixTime: num
 
     const positions = stopTimesWithLocation.map(st => {
         return convertClosestStopTimeToVehiclePositions(feed, st);
-    });
+    }).map(validateVehiclePosition);
 
     // Assert that trip_id is unique
     const tripIds = new Set(positions.map(p => p.tripId));
