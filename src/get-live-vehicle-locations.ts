@@ -83,7 +83,7 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
 
             // in metro-mn, route-short-name is sometimes not available, so we use the rid as fallback
             route_short_name: routeData?.route_short_name || r.rid,
-        }) as VehiclePositionOutput;
+        });
         
         const busRecordTime = new TimeTz(time, agency === 'metro-mn' ? 'America/Chicago' : "America/Toronto").offsetSecs(-1 * (r.secsSinceReport || 0));
 

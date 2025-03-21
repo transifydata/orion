@@ -1,6 +1,6 @@
 import assert from "assert";
 import length from "@turf/length";
-import {along, feature, nearestPointOnLine} from "@turf/turf";
+import { along, feature, nearestPointOnLine } from "@turf/turf";
 import type { Point, LineString } from "geojson"
 import { Stop } from "./stop";
 
@@ -17,13 +17,13 @@ export class Shape {
         this.tripId = tripId;
         this.stops = stops;
         this.has_stops = has_stops;
-        
+
         const feat = feature(ls);
-        this.length = length(feat, {units: "meters"});
+        this.length = length(feat, { units: "meters" });
 
         this.stops.forEach(stop => {
             stop.distance = this.project(
-                {type: "Point", coordinates: [stop.lon, stop.lat]}
+                { type: "Point", coordinates: [stop.lon, stop.lat] }
             );
         });
         this.stops.sort((a, b) => a.distance! - b.distance!);
@@ -46,7 +46,7 @@ export class Shape {
 
         const interp_distance = this.length * ratio;
 
-        const [x, y] = along(this.inner, interp_distance, {units: "meters"}).geometry.coordinates;
+        const [x, y] = along(this.inner, interp_distance, { units: "meters" }).geometry.coordinates;
         const lon = y;
         const lat = x;
         return [lon, lat];
@@ -57,18 +57,14 @@ export class Shape {
         // The point does not have to be *on* the line--we will find the closest point
         // on the line to the given point.
 
-        try {
-            const nearest_point = nearestPointOnLine(this.inner, point, {
-                units: "meters",
-            });
+        const nearest_point = nearestPointOnLine(this.inner, point, {
+            units: "meters",
+        });
 
-            if (nearest_point.properties.location === undefined) {
-                throw Error("nearest_point.properties.location is undefined");
-            }
-            return nearest_point.properties.location / this.length;
-        } catch (e) {
-            return -1;
+        if (nearest_point.properties.location === undefined) {
+            throw Error("nearest_point.properties.location is undefined");
         }
+        return nearest_point.properties.location / this.length;
     }
 
     projectDistanceToStopID(distance_meters: number): string | null {
