@@ -5,13 +5,11 @@ import cors from "cors";
 import {getAllRoutesWithShapes, Route} from "./gtfs-parser";
 import getVehicleLocations from "./get-vehicle-locations";
 import {migrateDbs, openDb, snapshotDb} from "./sinks/sqlite-tools";
-import {IS_PROD} from "./config";
+import {IS_PROD} from "orion-lambda/config";
 
 const app = express();
 
 app.use(cors())
-
-await migrateDbs();
 
 let ROUTES_CACHE: Record<string, Route[]> = {};
 
@@ -66,7 +64,7 @@ app.get('/snapshot', async (req, res) => {
         res.json(uploadData);
     } catch (e) {
         console.error("Error taking snapshot: ", e)
-        res.status(500).json({error: e.message})
+        res.status(500).json({error: e instanceof Error ? e.message : "Unknown error"})
     }
 })
 
@@ -90,7 +88,19 @@ function logErrors (err, req, res, next) {
 
 app.use(logErrors)
 app.use(errorHandler)
-app.listen(4000,() => {
-    console.log(`[server]: Server is running at http://localhost:4000`);
-})
+
+// Wrap app startup in async function
+async function startServer() {
+    try {
+        await migrateDbs();
+        app.listen(4000, () => {
+            console.log(`[server]: Server is running at http://localhost:4000`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+startServer();
 

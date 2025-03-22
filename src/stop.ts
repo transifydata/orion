@@ -1,5 +1,3 @@
-import { Shape } from "./shape";
-
 export class Stop {
   readonly id: string;
   readonly lat: number;

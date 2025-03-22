@@ -1,4 +1,4 @@
-import {Feature, FeatureCollection, Geometry} from "@turf/helpers";
+import type {Feature, FeatureCollection, Geometry} from "geojson";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {convertApiRouteToRoute, downloadRoutesFromTransifyApi} from "./transify-api-connector";
 
