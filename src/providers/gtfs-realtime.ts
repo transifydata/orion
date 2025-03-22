@@ -1,4 +1,4 @@
-import type {Agency} from "../index";
+import type {Agency} from "orion-lambda/types";
 
 import axios from "axios";
 

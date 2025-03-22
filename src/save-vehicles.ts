@@ -1,11 +1,37 @@
 import {writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-sink";
-import {config} from "./config";
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
 import {writeToS3} from "orion-lambda/s3Helper";
 import {migrateDbs} from "./sinks/sqlite-tools";
 import { logEventWithAgency } from "orion-lambda/logger";
-import { Agency, providerNames, providers, SAVE_INTERVAL } from "./index";
-import { saveVehiclesToS3Only } from "./lambda";
+import { saveVehiclesToS3Only } from "orion-lambda/lambda";
+import NextBus from "./providers/nextbus";
+import Realtime from "./providers/gtfs-realtime";
+import {config} from "orion-lambda/config";
+import {type Agency} from "orion-lambda/types";
+
+export const SAVE_INTERVAL = 5000; // ms
+
+
+
+if (!config || !config.agencies || !config.agencies.length) {
+    throw new Error("No agencies specified in config.");
+}
+
+if (!config.s3_bucket) {
+    throw new Error("No s3_bucket specified in config.");
+}
+
+export interface Provider {
+    getVehicles: (config: Agency) => Promise<any>;
+    getTripUpdates: (config: Agency) => Promise<any>;
+}
+
+export const providerNames = ["nextbus", "gtfs-realtime"];
+
+export const providers: Record<string, Provider> = {
+    nextbus: NextBus,
+    "gtfs-realtime": Realtime,
+};
 
 
 

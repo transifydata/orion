@@ -5,7 +5,7 @@ import cors from "cors";
 import {getAllRoutesWithShapes, Route} from "./gtfs-parser";
 import getVehicleLocations from "./get-vehicle-locations";
 import {migrateDbs, openDb, snapshotDb} from "./sinks/sqlite-tools";
-import {IS_PROD} from "./config";
+import {IS_PROD} from "orion-lambda/config";
 
 const app = express();
 

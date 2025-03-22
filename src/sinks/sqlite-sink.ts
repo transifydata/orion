@@ -1,7 +1,7 @@
 import type {VehiclePosition} from "../providers/gtfs-realtime";
 
 import type {Database} from "sqlite";
-import type {Agency} from "../index";
+import type {Agency} from "orion-lambda/types";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import {UpdatingGtfsFeed} from "../updating-gtfs-feed";
 import {
