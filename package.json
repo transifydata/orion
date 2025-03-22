@@ -2,7 +2,11 @@
   "name": "orion",
   "version": "1.1.0",
   "description": "Finds realtime transit data and sends it to S3",
-  "main": "src/index.ts",
+  "private": true,
+  "main": "src/save-vehicles.ts",
+  "workspaces": [
+    "orion-lambda"
+  ],
   "scripts": {
     "start": "tsx src/save-vehicles.ts",
     "serve": "tsx src/server.ts",

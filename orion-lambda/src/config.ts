@@ -1,4 +1,4 @@
-import type {Agency} from "./index";
+import type {Agency} from "./types";
 
 export const config: {agencies: Agency[]; s3_bucket: string} = {
     s3_bucket: "orion-vehicles",

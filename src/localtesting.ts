@@ -92,22 +92,6 @@
 //     console.log('No stopId for', vp.tripId, vp.vid);
 //   }
 
-//   const calcDelayFromDistances = () => {
-//     return 10000.0;
-//     // We can calculate the delay by comparing the scheduled distance along the route with the actual distance along the route
-//     // Then use the average bus speed (estimated at 35 km/hr) to calculate the delay in seconds
-//     const AVG_BUS_SPEED_METERS_PER_SEC = 35 * 1000 / 3600; // 35 km/h * 1000 m/km / 3600 s/h (get m/s)
-//     if (isDefined(scheduledDistanceAlongRoute) && isDefined(actualDistanceAlongRoute)) {
-//       const distanceDelta = scheduledDistanceAlongRoute - actualDistanceAlongRoute;
-
-//       // time delta in seconds
-//       const timeDelta = distanceDelta / AVG_BUS_SPEED_METERS_PER_SEC;
-
-//       // If the bus is ahead of schedule, the time delta will be negative
-//       return timeDelta;
-//     }
-//     return null;
-//   };
 
 //   if (scheduledLocation && scheduledLocation.length >= 1) {
 //     console.log("SCHEDULED LOCATION", scheduledLocation)
@@ -170,7 +154,7 @@
 
 //  */
 // async function test2() {
-//   console.log(await getVehicleLocations("go_transit", 1709014952103, false));
+//   console.log(await getVehicleLocations("go_transit", 1709014952103));
 //   1709012365219
 // }
 // // await test2();
@@ -180,5 +164,3 @@
   
 //   console.log(results)
 // }
-
-// await testmain1();

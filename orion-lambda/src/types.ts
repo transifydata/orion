@@ -6,8 +6,8 @@ export interface Agency {
     nextbus_agency_id?: string;
 }
 
-export interface LambdaEvent {
-    agency: Agency;
+export interface LambdaEvent { 
+    // Our lambda takes no inputs currently
 }
 
 export interface LambdaResponse {

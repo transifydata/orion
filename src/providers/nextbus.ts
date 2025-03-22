@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type {Agency} from "../index";
+import type {Agency} from "orion-lambda/types";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 
 

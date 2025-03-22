@@ -33,4 +33,15 @@ export async function writeToS3(s3Bucket: string, agency: string, currentTime: n
     };
 
     return s3.putObject(params).promise();
-} 
+}
+
+export async function saveRawBytesToS3(s3Bucket: string, s3Key: string, data: Buffer): Promise<AWS.S3.PutObjectOutput> {
+    const params = {
+        Bucket: s3Bucket,
+        Key: s3Key,
+        Body: data,
+        ContentType: "application/x-protobuf",  // Since this is typically used for GTFS-realtime data
+    };
+
+    return s3.putObject(params).promise();
+}

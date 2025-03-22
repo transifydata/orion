@@ -23,4 +23,8 @@ cd dist
 zip -r ../lambda.zip .
 cd ..
 
+aws lambda update-function-code \
+    --function-name orion-save \
+    --zip-file fileb://function.zip \
+    --region us-east-2
 echo "Build completed successfully! Deployment package is available at lambda.zip" 
