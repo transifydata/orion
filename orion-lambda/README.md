@@ -1,104 +1,102 @@
-# Orion Lambda Package
+# Orion Lambda
 
-This package contains the AWS Lambda function for the Orion transit data collection system. It provides a streamlined version of the Orion application's functionality, focusing only on S3 storage of transit data.
+A serverless AWS Lambda function for collecting and storing transit vehicle data from GTFS realtime feeds.
+
+## Overview
+
+This Lambda function fetches GTFS realtime vehicle positions and trip updates from configured transit agencies and stores them in S3 for backup and analysis. The data is saved in Protocol Buffer format with timestamps for tracking historical transit data.
+
+## Features
+
+- Parallel processing of multiple transit agencies
+- Handles both vehicle positions and trip updates
+- Automatic error handling and logging
+- Configurable memory and timeout settings
+- S3 backup storage
+
+## Prerequisites
+
+- Node.js (Latest LTS version recommended)
+- Yarn package manager
+- AWS CLI installed and configured
+- AWS credentials with appropriate permissions for Lambda and S3
 
 ## Installation
 
+1. Clone the repository
+2. Install dependencies:
 ```bash
-npm install orion-lambda
-```
-
-## Usage
-
-The package exports the following:
-
-```typescript
-import { handler } from 'orion-lambda';
-import type { Agency } from 'orion-lambda';
-
-// Example agency configuration
-const agency: Agency = {
-    id: "example-transit",
-    provider: "gtfs-realtime",
-    gtfs_realtime_url: "https://example.com/vehicle-positions",
-    tripUpdatesUrl: "https://example.com/trip-updates"
-};
-
-// The handler can be used directly in AWS Lambda
-export const lambdaHandler = handler;
+yarn install
 ```
 
 ## Configuration
 
-The Lambda function requires the following environment variables:
+The Lambda function requires the following configuration:
 
-- `S3_BUCKET`: The name of the S3 bucket where transit data will be stored
-- AWS credentials should be configured through Lambda execution role
+- AWS Region: us-east-2 (default)
+- S3 Bucket: orion-vehicles-backup
+- Lambda Function Name: orion-save
+- Memory Size: 150MB
+- Timeout: 60 seconds
 
-## Lambda Event Format
+Agency configuration should be provided through the `config.ts` file with the following structure:
 
-The Lambda function expects an event with the following structure:
-
-```json
+```typescript
 {
-  "agency": {
-    "id": "agency-id",
-    "provider": "provider-name",
-    "gtfs_realtime_url": "url-for-gtfs-realtime",
-    "tripUpdatesUrl": "url-for-trip-updates"
-  }
+  id: string;
+  gtfs_realtime_url: string;
+  tripUpdatesUrl?: string;
 }
 ```
 
 ## Development
 
-1. Install dependencies:
+The project is written in TypeScript and uses the following main dependencies:
+
+- aws-lambda: ^1.0.7
+- aws-sdk: ^2.238.1
+- axios: ^1.4.0
+
+To build the TypeScript code:
+
 ```bash
-npm install
+yarn build
 ```
 
-2. Build the package:
+## Testing
+
+Run tests using Vitest:
+
 ```bash
-npm run build
+yarn test
 ```
 
-3. Run tests:
+## Deployment
+
+Deploy the Lambda function using the provided script:
+
 ```bash
-npm test
+yarn deploy-lambda
 ```
 
-## S3 Storage Format
-
-Vehicle data is stored in S3 with the following key format:
-`{agency-id}/{year}/{month}/{day}/{hour}/{minute}/{second}/{agency-id}-{timestamp}.json.gz`
-
-The data is stored in gzipped JSON format with GTFS-realtime protobuf data.
+The deployment script will:
+1. Build the TypeScript code
+2. Install production dependencies
+3. Create a deployment package
+4. Update Lambda configuration
+5. Deploy the code to AWS Lambda
 
 ## Error Handling
 
 The Lambda function includes comprehensive error handling:
-- Validates required environment variables
-- Validates required agency configuration fields
-- Handles network errors when fetching GTFS data
-- Provides detailed error messages in the response
+- Invalid provider errors return 400 status code
+- Other errors return 500 status code
+- All errors are logged with agency context
 
-## Response Format
+## License
 
-Successful response (200):
-```json
-{
-  "message": "Successfully saved vehicle data to S3",
-  "timestamp": 1234567890,
-  "vehiclesResponseSize": 42,
-  "hasTrips": true
-}
-```
+[Add your license here]
 
-Error response (400/500):
-```json
-{
-  "message": "Error saving vehicle data to S3",
-  "error": "Detailed error message",
-  "agency": "agency-id"
-}
-``` 
+## Contributing
+
+[Add contribution guidelines here]
