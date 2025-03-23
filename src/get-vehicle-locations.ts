@@ -1,6 +1,7 @@
 import {getScheduledVehicleLocations} from "./get-scheduled-vehicle-locations";
 import {getLiveVehicleLocations} from "./get-live-vehicle-locations";
 import {VehiclePositionOutput} from "./providers/gtfs-realtime";
+import { logEventWithAgency } from "./logger";
 
 type FinalMatchedPosition = VehiclePositionOutput & {matchKey: string};
 export interface LinkedPosition {
@@ -13,6 +14,7 @@ export interface LinkedPositionsOutput {
 }
 
 async function measureExecutionTime<T>(func: () => Promise<T>): Promise<{time: number; result: T}> {
+    // Measures the time it takes to execute the provided function in milliseconds
     const startTime = performance.now();
 
     // Execute the provided function
@@ -38,7 +40,7 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
     const scheduledBlockIdToTripId: Map<string, string> = new Map();
 
     scheduled.forEach(sp => {
-        if (sp.scheduledStatus === 'running') {
+        if (sp.scheduledStatus === 'running' && sp.blockId) {
             scheduledBlockIdToTripId.set(sp.blockId, sp.tripId);
         }
         output[sp.tripId] = {
@@ -59,7 +61,7 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
                 live: lp,
             });
             setMatchKey(lp.tripId);
-        } else if (scheduledBlockIdToTripId.has(lp.blockId)) {
+        } else if (lp.blockId && scheduledBlockIdToTripId.has(lp.blockId)) {
             const mappedTripId = scheduledBlockIdToTripId.get(lp.blockId)!;
             output[lp.blockId] = Object.assign(output[mappedTripId], {
                 live: lp,
@@ -72,7 +74,7 @@ function joinVehicleLocations(scheduled: VehiclePositionOutput[], live: VehicleP
             });
             setMatchKey(lp.tripId);
         } else {
-            console.warn("No scheduled trip for live trip", lp);
+            // console.warn("No scheduled trip for live trip", lp);
             output[lp.tripId] = {
                 live: {...lp, matchKey: lp.tripId},
             };
@@ -98,6 +100,11 @@ export default async function getVehicleLocations(agency: string, time: number):
     );
 
     console.log("Scheduled execution time:", scheduledTime, "Live execution time:", liveTime);
+    logEventWithAgency("get-vehicle-locations", agency, {
+        scheduledTime,
+        liveTime,
+        time
+    });
 
     const output = joinVehicleLocations(scheduledPositions, livePositions);
 

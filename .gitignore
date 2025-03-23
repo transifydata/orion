@@ -8,3 +8,5 @@ orion-database.db*
 
 # Exclude database and WAL files
 gtfs-*.db*
+.DS_Store
+backup_174*

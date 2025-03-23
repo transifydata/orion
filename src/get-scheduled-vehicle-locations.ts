@@ -1,10 +1,11 @@
 import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
-import BetterSqlite3 from "better-sqlite3";
-import {VehiclePosition, VehiclePositionOutput} from "./providers/gtfs-realtime";
+import type BetterSqlite3 from "better-sqlite3";
+import type {VehiclePosition, VehiclePositionOutput} from "./providers/gtfs-realtime";
 import assert from "assert";
 import {getScheduledVehicleLocationsSQL} from "./sql-vehicle-locations";
-import {Point, unitsFactors} from "@turf/turf";
+import type { Point } from "geojson";
 import {TimeTz, secondsToHHMMSS} from "./Date";
+import { validateVehiclePosition } from "./get-live-vehicle-locations";
 
 export function HHMMSSToSeconds(time) {
     // Split the time string into hours, minutes, and seconds
@@ -209,7 +210,7 @@ export function processClosestStopTimes(
         const currentShapeDistTravelled =
             beforeShapeDistTravelled + interpolationFactor * (afterShapeDistTravelled - beforeShapeDistTravelled);
 
-        const currentLocation = shape.interpolate(currentShapeDistTravelled);
+        const currentLocation = shape?.interpolate(currentShapeDistTravelled) || [0, 0];
 
         // To get the angle, we need to compare two positions
         // Calculate the position a bit further to calculate the angle of the bus
@@ -217,7 +218,7 @@ export function processClosestStopTimes(
 
         if (currentShapeDistTravelled + 0.005 < 1.0) {
             // Only calculate the direction if we're not at the end of the shape
-            const deltaPosition = shape.interpolate(currentShapeDistTravelled + 0.005);
+            const deltaPosition = shape?.interpolate(currentShapeDistTravelled + 0.005) || [0, 0];
 
             // Calculate the direction (heading) in degrees
             direction =
@@ -231,7 +232,7 @@ export function processClosestStopTimes(
         return {
             currentLocation,
             heading: normalizedDirection,
-            distanceAlongRoute: currentShapeDistTravelled * shape.length,
+            distanceAlongRoute: currentShapeDistTravelled * (shape?.length || 0),
             scheduledStatus: "running",
         };
     }
@@ -250,7 +251,7 @@ export function processClosestStopTimes(
             }
         } else if (beforeStopTime) {
             // Only see before, that means the scheduledTrip already ended.
-            const endDistance = feed.getShapeByTripID(beforeStopTime.trip_id).length;
+            const endDistance = feed.getShapeByTripID(beforeStopTime.trip_id)?.length || 0;
             locationCalculation = {
                 currentLocation: feed.getStopLocation(beforeStopTime.stop_id),
                 heading: 0,
@@ -280,6 +281,7 @@ function convertClosestStopTimeToVehiclePositions(
     st: StopTimesWithLocation,
 ): VehiclePositionOutput {
     const tripData = db.getTrip(st.trip_id, ["route_id", "trip_headsign", "block_id"]);
+    const routeData = tripData?.route_id ? db.getRoute(tripData.route_id) : undefined;
 
     // When the user hovers over this bus, we preferentially show the live bus location by matching trip_ids
     // If there's no live bus in the GTFS-realtime feed, we show this scheduled bus along with the message
@@ -309,6 +311,7 @@ function convertClosestStopTimeToVehiclePositions(
         distanceAlongRoute: st.distanceAlongRoute,
         blockId: tripData?.block_id,
         scheduledStatus: st.scheduledStatus,
+        route_short_name: routeData?.route_short_name,
     };
 }
 
@@ -327,7 +330,7 @@ export async function getScheduledVehicleLocations(agency: string, unixTime: num
 
     const positions = stopTimesWithLocation.map(st => {
         return convertClosestStopTimeToVehiclePositions(feed, st);
-    });
+    }).map(validateVehiclePosition);
 
     // Assert that trip_id is unique
     const tripIds = new Set(positions.map(p => p.tripId));
@@ -391,7 +394,13 @@ export function calculateDistanceAlongRoute(
         type: "Point",
         coordinates: [vp.lon as number, vp.lat as number],
     };
-    const actualDistanceAlongRoute = shape.project(actualLocation) * shape.length;
+
+    let actualDistanceAlongRoute = -1;
+    try {
+        actualDistanceAlongRoute = shape.project(actualLocation) * shape.length;
+    } catch (e) {
+        console.error("Error calculating distance along route", e);
+    }
 
     return {scheduledDistanceAlongRoute, actualDistanceAlongRoute};
 }

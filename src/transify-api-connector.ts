@@ -1,7 +1,7 @@
-import {Feature, FeatureCollection, Geometry} from "@turf/helpers";
+import type {Feature, FeatureCollection, Geometry} from "geojson";
 import axios from "axios";
 
-import {Route as JSRoute, Stop} from "./gtfs-parser";
+import type { Route as JSRoute,  Stop} from "./gtfs-parser";
 interface Agency {
     agency_id: string;
     agency_name: string;
