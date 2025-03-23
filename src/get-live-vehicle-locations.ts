@@ -71,6 +71,10 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
                 .projectDistanceToStopID(actualDistanceAlongRoute);
         }
 
+        // If it doesn't have the short name, then use the long name
+        // For metro-mn, the LRT lines only have the long names. Their long names are like "Northstar Commuter Rail",
+        // so we should add a dash to separate the name from the trip headsign, which is usually the destination terminal.
+        const route_short_name = routeData?.route_short_name || routeData?.route_long_name + ' - ';
         let vp = validateVehiclePosition({
             ...r,
             source: "live",
@@ -80,9 +84,7 @@ export async function getLiveVehicleLocations(agency: string, time: number): Pro
             trip_headsign: tripAttr?.trip_headsign,
             distanceAlongRoute: actualDistanceAlongRoute,
             stopId: stopId || r.stopId,
-
-            // in metro-mn, route-short-name is sometimes not available, so we use the rid as fallback
-            route_short_name: routeData?.route_short_name || r.rid,
+            route_short_name,
         });
         
         const busRecordTime = new TimeTz(time, agency === 'metro-mn' ? 'America/Chicago' : "America/Toronto").offsetSecs(-1 * (r.secsSinceReport || 0));

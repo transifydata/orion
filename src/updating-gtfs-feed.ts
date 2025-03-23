@@ -339,13 +339,13 @@ export class UpdatingGtfsFeed {
         return this.valid_start <= date && this.valid_end >= date;
     }
 
-    getRoute(route_id: string): { route_short_name: string } | undefined {
+    getRoute(route_id: string): { route_short_name: string, route_long_name: string } | undefined {
         const query = this.db.prepare(
-            `SELECT route_short_name
+            `SELECT route_short_name, route_long_name
              FROM routes
              WHERE route_id = @route_id`
         );
         const row = query.get({ route_id });
-        return row as { route_short_name: string } | undefined;
+        return row as { route_short_name: string, route_long_name: string } | undefined;
     }
 }
