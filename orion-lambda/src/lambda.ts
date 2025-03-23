@@ -59,7 +59,8 @@ export async function saveVehiclesToS3Only(agencyInfo: Agency) {
 
         // Fetch vehicle positions
         const vehicleResponse = await axios.get(gtfsRealtimeUrl, {
-            responseType: 'arraybuffer'
+            responseType: 'arraybuffer',
+            timeout: 10000 // timeout of 10 seconds so it doesn't take up lambda time
         });
         
         // Save vehicle positions to S3

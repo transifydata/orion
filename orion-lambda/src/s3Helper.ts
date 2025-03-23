@@ -13,6 +13,7 @@ function compressData(data: any): Promise<Buffer> {
 }
 
 export async function writeToS3(s3Bucket: string, agency: string, currentTime: number, data: any): Promise<AWS.S3.PutObjectOutput> {
+    // Used for saving the output of `getVehicles` to S3
     const currentDateTime = new Date(currentTime);
     const year = currentDateTime.getUTCFullYear();
     const month = currentDateTime.getUTCMonth() + 1;
@@ -36,6 +37,7 @@ export async function writeToS3(s3Bucket: string, agency: string, currentTime: n
 }
 
 export async function saveRawBytesToS3(s3Bucket: string, s3Key: string, data: Buffer): Promise<AWS.S3.PutObjectOutput> {
+    // Used to save the raw protobuf bytes from the GTFS-realtime feed to S3
     const params = {
         Bucket: s3Bucket,
         Key: s3Key,

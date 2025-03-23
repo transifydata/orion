@@ -4,6 +4,7 @@
 # It will build the TypeScript code, package it, and deploy it to AWS.
 # It will also update the Lambda function configuration.
 
+# disable the AWS paging output
 export AWS_PAGER=""
 
 # Set the memory size for the Lambda function in MB
@@ -11,30 +12,23 @@ export LAMBDA_MEMORY_SIZE=150
 
 # Exit on error
 set -e
-node --version
 
 export AWS_REGION=us-east-2
 export LAMBDA_FUNCTION_NAME=orion-save
+
+
 # Check if AWS CLI is installed
 if ! command -v aws &> /dev/null; then
     echo "AWS CLI is not installed. Please install it first."
     exit 1
 fi
 
-# Check if Yarn is installed
-if ! command -v yarn &> /dev/null; then
-    echo "Yarn is not installed. Please install it first."
-    exit 1
-fi
-
-
 
 # Build TypeScript code
 echo "Building TypeScript code..."
 yarn build
 
-# Create a temporary directory for packaging
-# cp -r dist/* dist
+# Copy the package.json and yarn.lock to the dist directory so that we can install 
 cp package.json dist
 cp yarn.lock dist
 

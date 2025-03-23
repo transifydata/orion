@@ -1,102 +1,52 @@
 # Orion Lambda
 
-A serverless AWS Lambda function for collecting and storing transit vehicle data from GTFS realtime feeds.
+A serverless AWS Lambda function for collecting and storing GTFS realtime transit data from multiple agencies.
 
 ## Overview
 
-This Lambda function fetches GTFS realtime vehicle positions and trip updates from configured transit agencies and stores them in S3 for backup and analysis. The data is saved in Protocol Buffer format with timestamps for tracking historical transit data.
+This Lambda function fetches GTFS realtime vehicle positions and trip updates from configured transit agencies and stores them in S3 for later processing. The data is stored in Protocol Buffer format with timestamps for tracking historical transit data.
 
-## Features
-
-- Parallel processing of multiple transit agencies
-- Handles both vehicle positions and trip updates
-- Automatic error handling and logging
-- Configurable memory and timeout settings
-- S3 backup storage
-
-## Prerequisites
-
-- Node.js (Latest LTS version recommended)
-- Yarn package manager
-- AWS CLI installed and configured
-- AWS credentials with appropriate permissions for Lambda and S3
-
-## Installation
-
-1. Clone the repository
-2. Install dependencies:
-```bash
-yarn install
-```
+Orion also does this (via `save-vehicles.ts`, but we have this function as a secondary backup / failsafe in case Orion is buggy). Orion is hosted on GKE and when we have deploys or misconfigurations in the code, it will not save the realtime vehicle positions. During those down-periods, this lambda will act as the backup. 
 
 ## Configuration
 
-The Lambda function requires the following configuration:
+The function uses this configuration:
 
-- AWS Region: us-east-2 (default)
-- S3 Bucket: orion-vehicles-backup
-- Lambda Function Name: orion-save
-- Memory Size: 150MB
-- Timeout: 60 seconds
+- `AWS_REGION`: us-east-2
+- `LAMBDA_FUNCTION_NAME`: orion-save
+- `LAMBDA_MEMORY_SIZE`: 150MB
 
-Agency configuration should be provided through the `config.ts` file with the following structure:
+## Project Structure
 
-```typescript
-{
-  id: string;
-  gtfs_realtime_url: string;
-  tripUpdatesUrl?: string;
-}
-```
+- `src/lambda.ts` - Main Lambda function handler
+- `src/lambda.test.ts` - Integration tests for the Lambda function
+- `deploy-lambda.sh` - Deployment script for AWS Lambda
 
-## Development
-
-The project is written in TypeScript and uses the following main dependencies:
-
-- aws-lambda: ^1.0.7
-- aws-sdk: ^2.238.1
-- axios: ^1.4.0
-
-To build the TypeScript code:
-
-```bash
-yarn build
-```
-
-## Testing
-
-Run tests using Vitest:
-
-```bash
-yarn test
-```
 
 ## Deployment
 
-Deploy the Lambda function using the provided script:
+The project includes a deployment script that handles building, packaging, and deploying to AWS Lambda:
 
 ```bash
-yarn deploy-lambda
+./deploy-lambda.sh
 ```
 
 The deployment script will:
 1. Build the TypeScript code
-2. Install production dependencies
-3. Create a deployment package
-4. Update Lambda configuration
-5. Deploy the code to AWS Lambda
+2. Package the function with production dependencies
+3. Update Lambda configuration (memory, timeout)
+4. Deploy the code to AWS Lambda
+5. Clean up temporary files
 
-## Error Handling
+## Function Details
 
-The Lambda function includes comprehensive error handling:
-- Invalid provider errors return 400 status code
-- Other errors return 500 status code
-- All errors are logged with agency context
+The Lambda function:
+- Processes multiple transit agencies in parallel
+- Fetches both vehicle positions and trip updates (if available)
+- Stores raw Protocol Buffer data in S3
+- Has a 60-second timeout
+- Uses 150MB of memory
 
-## License
+## Development
 
-[Add your license here]
-
-## Contributing
-
-[Add contribution guidelines here]
+To add new agencies or modify existing ones, update the config file with the appropriate GTFS realtime URLs and agency information.

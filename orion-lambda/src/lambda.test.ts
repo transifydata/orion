@@ -31,8 +31,6 @@ describe('Lambda Handler', () => {
     // Reset all mocks before each test
     vi.clearAllMocks();
     
-    // Set required environment variable
-    process.env.S3_BUCKET = 'test-bucket';
   });
 
   it('should process agency data and save to S3', async () => {
