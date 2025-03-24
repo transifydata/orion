@@ -2,6 +2,7 @@ import { describe, it, vi, expect, beforeEach } from 'vitest';
 import { handler } from './lambda';
 import type { LambdaEvent, LambdaResponse } from './types';
 import type { Context, Callback } from 'aws-lambda';
+import axios from 'axios';
 
 // Create the spy before mocking the module
 const mockPutObjectPromise = vi.fn().mockResolvedValue({});
@@ -37,8 +38,7 @@ describe('Lambda Handler', () => {
     const sampleEvent: LambdaEvent = { };
     
     // Setup axios mock for this test
-    const axios = await import('axios');
-    (axios.default.get as any).mockImplementation(() =>
+    (axios.get as any).mockImplementation(() =>
       Promise.resolve({
         data: Buffer.from('mock protobuf data'),
         status: 200
@@ -58,7 +58,7 @@ describe('Lambda Handler', () => {
     });
 
     // Verify axios was called correctly
-    expect(axios.default.get).toHaveBeenCalledTimes(5);
+    expect(axios.get).toHaveBeenCalledTimes(5);
     
     // Verify S3 putObject was called 5 times
     expect(mockPutObjectPromise).toHaveBeenCalledTimes(5);
