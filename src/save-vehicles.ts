@@ -1,21 +1,17 @@
 import {writeToSink, writeTripUpdatesToSink} from "./sinks/sqlite-sink";
+import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
+import {writeToS3} from "orion-lambda/s3Helper";
+import {migrateDbs} from "./sinks/sqlite-tools";
+import { logEventWithAgency } from "orion-lambda/logger";
+import { saveVehiclesToS3Only } from "orion-lambda/lambda";
 import NextBus from "./providers/nextbus";
 import Realtime from "./providers/gtfs-realtime";
-import {config} from "./config";
-import {UpdatingGtfsFeed} from "./updating-gtfs-feed";
-import {writeToS3} from "./sinks/s3Helper";
-import {migrateDbs} from "./sinks/sqlite-tools";
-import { logEventWithAgency } from "./logger";
+import {config} from "orion-lambda/config";
+import {type Agency} from "orion-lambda/types";
 
-const interval = 5000; // ms
+export const SAVE_INTERVAL = 5000; // ms
 
-export interface Agency {
-    id: string;
-    provider: string;
-    gtfs_realtime_url?: string;
-    tripUpdatesUrl?: string;
-    nextbus_agency_id?: string;
-}
+
 
 if (!config || !config.agencies || !config.agencies.length) {
     throw new Error("No agencies specified in config.");
@@ -30,17 +26,14 @@ export interface Provider {
     getTripUpdates: (config: Agency) => Promise<any>;
 }
 
+export const providerNames = ["nextbus", "gtfs-realtime"];
 
-
-const providerNames = ["nextbus", "gtfs-realtime"];
-
-const providers: Record<string, Provider> = {
+export const providers: Record<string, Provider> = {
     nextbus: NextBus,
     "gtfs-realtime": Realtime,
 };
 
-const s3Bucket = config.s3_bucket;
-console.log("S3 bucket: " + s3Bucket);
+
 
 var agenciesInfo = config.agencies.map(agencyConfig => {
     const providerName = agencyConfig.provider;
@@ -58,7 +51,7 @@ var agenciesInfo = config.agencies.map(agencyConfig => {
     return agencyConfig;
 });
 
-async function saveVehicles(agencyInfo: Agency) {
+export async function saveVehicles(agencyInfo: Agency) {
     const unixTime = Date.now();
 
     const providerCode = providers[agencyInfo.provider];
@@ -79,7 +72,7 @@ async function saveVehicles(agencyInfo: Agency) {
         await providerCode.getVehicles(agencyInfo).then(vehicles => {
             vehiclesCount = vehicles.length;
             return writeToSink(db, agencyInfo, unixTime, vehicles).then(() => {
-                return writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
+                return writeToS3(config.s3_bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
                     console.log("Error saving to S3: ", e)
                     throw e;
                 })
@@ -101,20 +94,16 @@ async function saveVehicles(agencyInfo: Agency) {
     }
     if (savingFailed) {
         try {
-            if (!providerCode) throw new Error("Invalid provider name");
-            await providerCode.getVehicles(agencyInfo).then(vehicles => {
-                return writeToS3(s3Bucket, agencyInfo.id, unixTime, vehicles).catch(e => {
-                    console.log("Error saving to S3: ", e)
-                });
-            });
+            await saveVehiclesToS3Only(agencyInfo);
         } catch (e) {
-            console.log("Error saving vehicles to S3 for " + agencyInfo.id + " " + e);
-            logEventWithAgency("agency-gtfs-save-s3-failed", agencyInfo.id);
+            // If even S3 fallback fails, we should log it but not throw
+            // This ensures the repeat cycle continues
+            console.error(`Final S3 fallback failed for agency ${agencyInfo.id}:`, e);
         }
     }
 }
 
-function saveVehicleRepeatForAgency(agencyInfo: Agency) {
+export function saveVehicleRepeatForAgency(agencyInfo: Agency) {
     const startTime = Date.now();
     saveVehicles(agencyInfo)
         .catch(e => console.error(`Error in saveVehicles for agency ${agencyInfo.id}:`, e))
@@ -122,10 +111,10 @@ function saveVehicleRepeatForAgency(agencyInfo: Agency) {
             const endTime = Date.now();
             const duration = endTime - startTime;
 
-            if (interval < duration) {
-                console.log(`Saving vehicles for ${agencyInfo.id} took ${duration}ms, which is longer than the interval of ${interval}ms`);
+            if (SAVE_INTERVAL < duration) {
+                console.log(`Saving vehicles for ${agencyInfo.id} took ${duration}ms, which is longer than the interval of ${SAVE_INTERVAL}ms`);
             }
-            const waitTime = Math.max(interval - duration, 500);
+            const waitTime = Math.max(SAVE_INTERVAL - duration, 500);
             setTimeout(() => saveVehicleRepeatForAgency(agencyInfo), waitTime);
         });
 }

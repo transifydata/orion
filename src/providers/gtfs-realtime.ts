@@ -1,4 +1,4 @@
-import type {Agency} from "../index";
+import type {Agency} from "orion-lambda/types";
 
 import axios from "axios";
 
@@ -98,7 +98,7 @@ export interface VehiclePosition {
 export interface VehiclePositionOutput extends VehiclePosition {
     delay?: number;
     calculatedDelay?: number;
-    trip_headsign: string;
+    trip_headsign?: string;
     server_time: number;
     source: string;
     terminalDepartureTime: string;

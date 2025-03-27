@@ -13,7 +13,7 @@ export function validateVehiclePosition(vehiclePosition: VehiclePositionOutput):
     // for metro-mn, the trip headsign doesn't include the route number (which is the route short name)
     // so we have to manually add it
     let newTripHeadsign = tripHeadsign;
-    if (!tripHeadsign.trimStart().startsWith(routeShortName)) {
+    if (tripHeadsign && !tripHeadsign.trimStart().startsWith(routeShortName)) {
         newTripHeadsign = `${routeShortName} ${tripHeadsign}`;
     }
     

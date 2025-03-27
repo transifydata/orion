@@ -5,7 +5,7 @@ import AWS from "aws-sdk";
 import {TimeTz} from "../Date";
 import zlib from "zlib";
 
-import {IS_PROD} from "../config";
+import {IS_PROD} from "orion-lambda/config";
 
 export const orionBackupS3Bucket = "orion-db-snapshots";
 const databasePath = (process.env["ORION_DATABASE_PATH"] || ".") + "/orion-database.db";
