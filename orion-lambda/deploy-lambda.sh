@@ -8,7 +8,7 @@
 export AWS_PAGER=""
 
 # Set the memory size for the Lambda function in MB
-export LAMBDA_MEMORY_SIZE=150
+export LAMBDA_MEMORY_SIZE=300
 
 # Exit on error
 set -e

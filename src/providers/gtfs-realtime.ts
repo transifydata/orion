@@ -98,7 +98,7 @@ export interface VehiclePosition {
 export interface VehiclePositionOutput extends VehiclePosition {
     delay?: number;
     calculatedDelay?: number;
-    trip_headsign: string;
+    trip_headsign?: string;
     server_time: number;
     source: string;
     terminalDepartureTime: string;

@@ -14,7 +14,7 @@ The function uses this configuration:
 
 - `AWS_REGION`: us-east-2
 - `LAMBDA_FUNCTION_NAME`: orion-save
-- `LAMBDA_MEMORY_SIZE`: 150MB
+- `LAMBDA_MEMORY_SIZE`: 300MB
 
 ## Project Structure
 
@@ -45,7 +45,6 @@ The Lambda function:
 - Fetches both vehicle positions and trip updates (if available)
 - Stores raw Protocol Buffer data in S3
 - Has a 60-second timeout
-- Uses 150MB of memory
 
 ## Development
 
